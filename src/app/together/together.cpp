@@ -76,7 +76,7 @@ static void together_process(AppController *sys,
         run_data->t.hour = 0;
     }
 
-    display_together(forever_data.networkTime, run_data->t);
+    display_together(run_data->t);
     delay(300);
 }
 

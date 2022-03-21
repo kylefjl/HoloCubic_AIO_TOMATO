@@ -175,7 +175,7 @@ void display_cute_emoji()
     displayGif(img_cute_emoji, currGif);
 }
 
-void display_together(long long networkTime,struct TimeStr t) {
+void display_together(struct TimeStr t) {
     UIInit();
     lv_label_set_text_fmt(clockLabel_1, "#ffa500 %02d#", t.minute);//#ffa500 
     lv_label_set_text_fmt(clockLabel_2, "%02d", t.second);

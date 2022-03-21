@@ -19,7 +19,6 @@
 #include "app/bilibili_fans/bilibili.h"
 //#include "app/tomato/tomato.h"
 #include "app/together/together.h"
-#include "app/tomato/tomato.h"
 #include "app/server/server.h"
 #include "app/idea_anim/idea.h"
 #include "app/settings/settings.h"
