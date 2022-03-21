@@ -8,16 +8,16 @@
 // 动态数据，APP的生命周期结束也需要释放它
 struct TogetherAppRunData
 {
-    long long time_start; //
+    long long time_start; //开始毫秒数
     long long time_ms;    //毫秒数
     TimeStr t;            //时间结构体
     TimeStr t_start;      //倒计时结构体
     RgbConfig rgb_cfg;    //灯效
     bool rgb_fast;        //使能
-    bool rgb_fast_update; //使能
-    RgbParam rgb_setting;
-    int time_mode;
-    uint8_t switch_count;
+    bool rgb_fast_update; //标志位
+    RgbParam rgb_setting; // rgb参数
+    int time_mode;        //倒计时种类
+    uint8_t switch_count; //切换次数，用于消抖
 };
 
 // 常驻数据，可以不随APP的生命周期而释放或删除
@@ -70,6 +70,79 @@ static int together_init(void)
                              run_data->rgb_cfg.min_brightness, run_data->rgb_cfg.max_brightness,
                              run_data->rgb_cfg.brightness_step, run_data->rgb_cfg.time};
 }
+static void time_switch()
+{
+    switch (run_data->time_mode)
+    {
+    case -1:
+        run_data->time_start = millis();
+        run_data->t_start.second = 59;
+        run_data->t_start.minute = 4;
+        run_data->t = run_data->t_start;
+        run_data->rgb_fast = 0;
+        run_data->rgb_fast_update = 0;
+        return;
+        break;
+    case 0:
+        run_data->time_start = millis();
+        run_data->t_start.second = 59;
+        run_data->t_start.minute = 24;
+        run_data->t = run_data->t_start;
+        run_data->rgb_fast = 0;
+        run_data->rgb_fast_update = 0;
+        break;
+    case 1:
+        run_data->time_start = millis();
+        run_data->t_start.second = 59;
+        run_data->t_start.minute = 14;
+        run_data->t = run_data->t_start;
+        run_data->rgb_fast = 0;
+        run_data->rgb_fast_update = 0;
+        break;
+
+    default:
+        break;
+    }
+}
+/*********************************************************************************
+  *Function:     rgb 控制
+  *Description： 用来提醒
+  *Calls:        
+  *Called By:    
+  *Input:        
+  *Output:       
+  *Return:       
+  *Others:       调快了速度和最低亮度
+**********************************************************************************/
+static void rgb_ctrl()
+{
+    if (run_data->t.minute == 0 && run_data->t.second == 0 && run_data->rgb_fast == 0)
+    {
+        run_data->rgb_fast = 1;
+        run_data->rgb_fast_update = 0;
+    }
+    if (run_data->rgb_fast_update == 0)
+    {
+        if (run_data->rgb_fast == 1)
+        {
+            run_data->rgb_cfg.time = 4;
+            run_data->rgb_cfg.min_brightness = 0.05;
+        }
+        else
+        {
+            run_data->rgb_cfg.time = 30;
+            run_data->rgb_cfg.min_brightness = 0.15;
+        }
+        run_data->rgb_setting = {LED_MODE_HSV,
+                                 run_data->rgb_cfg.min_value_0, run_data->rgb_cfg.min_value_1, run_data->rgb_cfg.min_value_2,
+                                 run_data->rgb_cfg.max_value_0, run_data->rgb_cfg.max_value_1, run_data->rgb_cfg.max_value_2,
+                                 run_data->rgb_cfg.step_0, run_data->rgb_cfg.step_1, run_data->rgb_cfg.step_2,
+                                 run_data->rgb_cfg.min_brightness, run_data->rgb_cfg.max_brightness,
+                                 run_data->rgb_cfg.brightness_step, run_data->rgb_cfg.time};
+        set_rgb(&(run_data->rgb_setting));
+        run_data->rgb_fast_update = 1;
+    }
+}
 
 static void together_process(AppController *sys,
                              const Imu_Action *act_info)
@@ -85,100 +158,42 @@ static void together_process(AppController *sys,
         return;
     }
 
-    if (TURN_LEFT == act_info->active || TURN_RIGHT == act_info->active && 1 == act_info->active_update) //休息时间，初始化一次
+    if (TURN_LEFT == act_info->active || TURN_RIGHT == act_info->active && 1 == act_info->active_update)
     {
         run_data->switch_count <<= 2;
         run_data->switch_count |= 3;
-        if (TURN_LEFT == act_info->active&&run_data->switch_count>0xfe)
+        if (TURN_LEFT == act_info->active && run_data->switch_count > 0xfe)
         {
             run_data->switch_count = 0X00;
-            run_data->time_mode -= 1;
+            run_data->time_mode -= 1; //
         }
-        else if (TURN_RIGHT == act_info->active&&run_data->switch_count>0xfe)
+        else if (TURN_RIGHT == act_info->active && run_data->switch_count > 0xfe)
         {
             run_data->switch_count = 0X00;
             run_data->time_mode += 1;
         }
-        Serial.println("time_mode");
-        Serial.print(run_data->time_mode);
-        if (run_data->time_mode > 1)
+        if (run_data->time_mode > 1) //限幅
             run_data->time_mode = 1;
         if (run_data->time_mode < -1)
             run_data->time_mode = -1;
-        switch (run_data->time_mode)
-        {
-        case -1:
-            run_data->time_start = millis();
-            run_data->t_start.second = 59;
-            run_data->t_start.minute = 4;
-            run_data->t = run_data->t_start;
-            run_data->rgb_fast = 0;
-            run_data->rgb_fast_update = 0;
-            return;
-            break;
-        case 0:
-            run_data->time_start = millis();
-            run_data->t_start.second = 59;
-            run_data->t_start.minute = 24;
-            run_data->t = run_data->t_start;
-            run_data->rgb_fast = 0;
-            run_data->rgb_fast_update = 0;
-            break;
-        case 1:
-            run_data->time_start = millis();
-            run_data->t_start.second = 59;
-            run_data->t_start.minute = 14;
-            run_data->t = run_data->t_start;
-            run_data->rgb_fast = 0;
-            run_data->rgb_fast_update = 0;
-            break;
-
-        default:
-            break;
-        }
+        time_switch();
     }
-    else if (1 == act_info->active_update)
+    else if (1 == act_info->active_update) //消抖
     {
         run_data->switch_count <<= 2;
         run_data->switch_count &= ~3;
     }
 
-    if (run_data->t.minute == 0 && run_data->t.second == 0 && run_data->rgb_fast == 0)
-    {
-        run_data->rgb_fast = 1;
-        run_data->rgb_fast_update = 0;
-    }
+rgb_ctrl();
     if (run_data->rgb_fast == 0)
     {
         run_data->time_ms = millis() - run_data->time_start; //换算
         run_data->t.second = run_data->t_start.second - (int)(run_data->time_ms / 1000) % 60;
         run_data->t.minute = run_data->t_start.minute - (int)(run_data->time_ms / 60000) % 60;
-        run_data->t.hour = 0;
     }
-    if (run_data->rgb_fast_update == 0)
-    {
-        if (run_data->rgb_fast == 1)
-        {
-            run_data->rgb_cfg.time = 4;
-            run_data->rgb_cfg.min_brightness = 0.05;
-        }
-
-        else
-        {
-            run_data->rgb_cfg.time = 30;
-            run_data->rgb_cfg.min_brightness = 0.15;
-        }
-        run_data->rgb_setting = {LED_MODE_HSV,
-                                 run_data->rgb_cfg.min_value_0, run_data->rgb_cfg.min_value_1, run_data->rgb_cfg.min_value_2,
-                                 run_data->rgb_cfg.max_value_0, run_data->rgb_cfg.max_value_1, run_data->rgb_cfg.max_value_2,
-                                 run_data->rgb_cfg.step_0, run_data->rgb_cfg.step_1, run_data->rgb_cfg.step_2,
-                                 run_data->rgb_cfg.min_brightness, run_data->rgb_cfg.max_brightness,
-                                 run_data->rgb_cfg.brightness_step, run_data->rgb_cfg.time};
-        set_rgb(&(run_data->rgb_setting));
-        run_data->rgb_fast_update = 1;
-    }
-    display_together(run_data->t);
+    display_together(run_data->t,run_data->time_mode);
 }
+
 
 static int together_exit_callback(void *param)
 {

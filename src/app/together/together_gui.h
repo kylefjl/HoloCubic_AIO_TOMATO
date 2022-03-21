@@ -22,7 +22,7 @@ extern "C"
 
     void together_gui_init(void);
     void together_gui_del(void);
-   void display_together(struct TimeStr t);
+   void display_together(struct TimeStr t,int mode);
     void display_us(const char *file_name);
 
 #ifdef __cplusplus
