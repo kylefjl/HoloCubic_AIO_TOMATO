@@ -76,8 +76,8 @@ static void time_switch()
     {
     case -1:
         run_data->time_start = millis();
-        run_data->t_start.second = 19;
-        run_data->t_start.minute = 0;
+        run_data->t_start.second = 59;
+        run_data->t_start.minute = 4;
         run_data->t = run_data->t_start;
         run_data->rgb_fast = 0;
         run_data->rgb_fast_update = 0;
@@ -121,39 +121,40 @@ static void rgb_ctrl()
         run_data->rgb_fast = 1;
         run_data->rgb_fast_update = 0;
     }
-    Serial.print(run_data->rgb_fast);
-    Serial.println("     rgb_fast");
-    Serial.print(run_data->rgb_fast_update);
-    Serial.println("     rgb_fast_update");
+    // Serial.print(run_data->rgb_fast);
+    // Serial.println("     rgb_fast");
+    // Serial.print(run_data->rgb_fast_update);
+    // Serial.println("     rgb_fast_update");
     if (run_data->rgb_fast_update == 0)
     {
         if (run_data->rgb_fast == 1)
         {
             run_data->rgb_cfg.time = 10;
             run_data->rgb_cfg.min_brightness = 0.01;
-            run_data->rgb_cfg.brightness_step = 0.02;
-            run_data->rgb_cfg.step_0 = 50;
-            run_data->rgb_cfg.step_1 = 50;
-            run_data->rgb_cfg.step_2 = 50;
-            Serial.println("set fast");
+            run_data->rgb_cfg.brightness_step = 0.05;
+            run_data->rgb_cfg.max_brightness = 0.95;
+            run_data->rgb_cfg.step_0 = 0;
+            run_data->rgb_cfg.step_1 = 0;
+            run_data->rgb_cfg.step_2 = 0;
+            //  Serial.println("set fast");
         }
         else
         {
-  run_data->rgb_cfg.mode = 1;
-    run_data->rgb_cfg.min_value_0 = 1;
-    run_data->rgb_cfg.min_value_1 = 32;
-    run_data->rgb_cfg.min_value_2 = 255;
-    run_data->rgb_cfg.max_value_0 = 255;
-    run_data->rgb_cfg.max_value_1 = 255;
-    run_data->rgb_cfg.max_value_2 = 255;
-            Serial.println("set low");
+            run_data->rgb_cfg.mode = 1;
+            run_data->rgb_cfg.min_value_0 = 1;
+            run_data->rgb_cfg.min_value_1 = 32;
+            run_data->rgb_cfg.min_value_2 = 255;
+            run_data->rgb_cfg.max_value_0 = 255;
+            run_data->rgb_cfg.max_value_1 = 255;
+            run_data->rgb_cfg.max_value_2 = 255;
+            //  Serial.println("set low");
             run_data->rgb_cfg.step_0 = 1;
             run_data->rgb_cfg.step_1 = 1;
             run_data->rgb_cfg.step_2 = 1;
             run_data->rgb_cfg.min_brightness = 0.15;
             run_data->rgb_cfg.max_brightness = 0.25;
             run_data->rgb_cfg.brightness_step = 0.001;
-            run_data->rgb_cfg.time = 30;
+            run_data->rgb_cfg.time = 50;
         }
         run_data->rgb_setting = {LED_MODE_HSV,
                                  run_data->rgb_cfg.min_value_0, run_data->rgb_cfg.min_value_1, run_data->rgb_cfg.min_value_2,
@@ -164,6 +165,32 @@ static void rgb_ctrl()
         set_rgb(&(run_data->rgb_setting));
         run_data->rgb_fast_update = 1;
     }
+}
+static void rgb_reset()
+{
+
+    run_data->rgb_cfg.mode = 1;
+    run_data->rgb_cfg.min_value_0 = 1;
+    run_data->rgb_cfg.min_value_1 = 32;
+    run_data->rgb_cfg.min_value_2 = 255;
+    run_data->rgb_cfg.max_value_0 = 255;
+    run_data->rgb_cfg.max_value_1 = 255;
+    run_data->rgb_cfg.max_value_2 = 255;
+    //  Serial.println("set low");
+    run_data->rgb_cfg.step_0 = 1;
+    run_data->rgb_cfg.step_1 = 1;
+    run_data->rgb_cfg.step_2 = 1;
+    run_data->rgb_cfg.min_brightness = 0.15;
+    run_data->rgb_cfg.max_brightness = 0.25;
+    run_data->rgb_cfg.brightness_step = 0.001;
+    run_data->rgb_cfg.time = 50;
+    run_data->rgb_setting = {LED_MODE_HSV,
+                             run_data->rgb_cfg.min_value_0, run_data->rgb_cfg.min_value_1, run_data->rgb_cfg.min_value_2,
+                             run_data->rgb_cfg.max_value_0, run_data->rgb_cfg.max_value_1, run_data->rgb_cfg.max_value_2,
+                             run_data->rgb_cfg.step_0, run_data->rgb_cfg.step_1, run_data->rgb_cfg.step_2,
+                             run_data->rgb_cfg.min_brightness, run_data->rgb_cfg.max_brightness,
+                             run_data->rgb_cfg.brightness_step, run_data->rgb_cfg.time};
+    set_rgb(&(run_data->rgb_setting));
 }
 
 static void together_process(AppController *sys,
@@ -222,6 +249,7 @@ static void together_process(AppController *sys,
 static int together_exit_callback(void *param)
 {
     together_gui_del();
+    rgb_reset();
     if (run_data != NULL)
     {
         // 释放资源
