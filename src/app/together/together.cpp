@@ -178,7 +178,6 @@ static void together_process(AppController *sys,
         run_data->rgb_fast_update = 1;
     }
     display_together(run_data->t);
-    delay(500);
 }
 
 static int together_exit_callback(void *param)
