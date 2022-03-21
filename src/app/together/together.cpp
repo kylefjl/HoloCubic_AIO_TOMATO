@@ -11,6 +11,11 @@ struct TogetherAppRunData
     long long time_start; //
     long long time_ms;    //毫秒数
     TimeStr t;            //时间结构体
+    TimeStr t_start;      //倒计时结构体
+    RgbConfig rgb_cfg;    //灯效
+    bool rgb_fast;//使能
+     bool rgb_fast_update;//使能
+     RgbParam rgb_setting;
 };
 
 // 常驻数据，可以不随APP的生命周期而释放或删除
@@ -34,8 +39,34 @@ static int together_init(void)
     // 初始化运行时参数
     run_data = (TogetherAppRunData *)calloc(1, sizeof(TogetherAppRunData));
     run_data->time_start = millis();
-    run_data->t.second = 59; //专注时间，初始化一次
-    run_data->t.minute = 24;
+    run_data->t_start.second = 59; //专注时间，初始化一次
+    run_data->t_start.minute = 24;
+    run_data->t = run_data->t_start;
+     run_data->rgb_fast=0;
+        run_data->rgb_fast_update=0;
+
+    run_data->rgb_cfg.mode = 1;
+    run_data->rgb_cfg.min_value_0 = 1;
+    run_data->rgb_cfg.min_value_1 = 32;
+    run_data->rgb_cfg.min_value_2 = 255;
+    run_data->rgb_cfg.max_value_0 = 255;
+    run_data->rgb_cfg.max_value_1 = 255;
+    run_data->rgb_cfg.max_value_2 = 255;
+    run_data->rgb_cfg.step_0 = 1;
+    run_data->rgb_cfg.step_1 = 1;
+    run_data->rgb_cfg.step_2 = 1;
+    run_data->rgb_cfg.min_brightness = 0.15;
+    run_data->rgb_cfg.max_brightness = 0.25;
+    run_data->rgb_cfg.brightness_step = 0.001;
+    run_data->rgb_cfg.time = 30;
+
+
+    run_data->rgb_setting = {LED_MODE_HSV,
+                            run_data->rgb_cfg.min_value_0, run_data->rgb_cfg.min_value_1, run_data->rgb_cfg.min_value_2,
+                            run_data->rgb_cfg.max_value_0, run_data->rgb_cfg.max_value_1, run_data->rgb_cfg.max_value_2,
+                            run_data->rgb_cfg.step_0, run_data->rgb_cfg.step_1, run_data->rgb_cfg.step_2,
+                            run_data->rgb_cfg.min_brightness, run_data->rgb_cfg.max_brightness,
+                            run_data->rgb_cfg.brightness_step, run_data->rgb_cfg.time};
 }
 
 static void together_process(AppController *sys,
@@ -51,31 +82,55 @@ static void together_process(AppController *sys,
     {
         return;
     }
-    if (run_data->t.minute == 0 && run_data->t.second == 0)
+
+    if (TURN_LEFT == act_info->active) //休息时间，初始化一次
     {
-        if (TURN_LEFT == act_info->active) //休息时间，初始化一次
-        {
-            run_data->time_start = millis();
-            run_data->t.second = 59;
-            run_data->t.minute = 4;
-            return;
-        }
-        if (TURN_RIGHT == act_info->active) //休息时间，初始化一次
-        {
-            run_data->time_start = millis();
-            run_data->t.second = 59;
-            run_data->t.minute = 14;
-            return;
-        }
+        run_data->time_start = millis();
+        run_data->t_start.second = 59;
+        run_data->t_start.minute = 4;
+        run_data->t = run_data->t_start;
+         run_data->rgb_fast=0;
+        run_data->rgb_fast_update=0;
+        return;
     }
-    else
+    if (TURN_RIGHT == act_info->active) //休息时间，初始化一次
+    {
+        run_data->time_start = millis();
+        run_data->t_start.second = 59;
+        run_data->t_start.minute = 14;
+        run_data->t = run_data->t_start;
+         run_data->rgb_fast=0;
+        run_data->rgb_fast_update=0;
+        return;
+    }
+    if (run_data->t.minute == 0 && run_data->t.second == 0&&run_data->rgb_fast==0)
+    {
+        run_data->rgb_fast=1;
+        run_data->rgb_fast_update=0;
+    }
+    if(run_data->rgb_fast==0)
     {
         run_data->time_ms = millis() - run_data->time_start; //换算
-        run_data->t.second = 59 - (int)(run_data->time_ms / 1000) % 60;
-        run_data->t.minute = 24 - (int)(run_data->time_ms / 60000) % 60;
+        run_data->t.second = run_data->t_start.second - (int)(run_data->time_ms / 1000) % 60;
+        run_data->t.minute = run_data->t_start.minute - (int)(run_data->time_ms / 60000) % 60;
         run_data->t.hour = 0;
     }
+    if(run_data->rgb_fast_update==0)
+    {
+        if(run_data->rgb_fast==1)
+        run_data->rgb_cfg.time=10;
+        else
+        run_data->rgb_cfg.time=10;
+    run_data->rgb_setting = {LED_MODE_HSV,
+                            run_data->rgb_cfg.min_value_0, run_data->rgb_cfg.min_value_1, run_data->rgb_cfg.min_value_2,
+                            run_data->rgb_cfg.max_value_0, run_data->rgb_cfg.max_value_1, run_data->rgb_cfg.max_value_2,
+                            run_data->rgb_cfg.step_0, run_data->rgb_cfg.step_1, run_data->rgb_cfg.step_2,
+                            run_data->rgb_cfg.min_brightness, run_data->rgb_cfg.max_brightness,
+                            run_data->rgb_cfg.brightness_step, run_data->rgb_cfg.time};
+        set_rgb(&(run_data->rgb_setting));
+       run_data->rgb_fast_update=1;
 
+    }
     display_together(run_data->t);
     delay(300);
 }
@@ -95,10 +150,10 @@ static void together_message_handle(const char *from, const char *to, APP_MESSAG
 {
     switch (type)
     {
-        case APP_MESSAGE_WIFI_CONN:
-        {
-            //  get_timestamp(TIME_API);
-        }
+    case APP_MESSAGE_WIFI_CONN:
+    {
+        //  get_timestamp(TIME_API);
+    }
     }
 }
 
