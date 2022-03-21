@@ -76,8 +76,8 @@ static void time_switch()
     {
     case -1:
         run_data->time_start = millis();
-        run_data->t_start.second = 59;
-        run_data->t_start.minute = 4;
+        run_data->t_start.second = 19;
+        run_data->t_start.minute = 0;
         run_data->t = run_data->t_start;
         run_data->rgb_fast = 0;
         run_data->rgb_fast_update = 0;
@@ -105,15 +105,15 @@ static void time_switch()
     }
 }
 /*********************************************************************************
-  *Function:     rgb 控制
-  *Description： 用来提醒
-  *Calls:        
-  *Called By:    
-  *Input:        
-  *Output:       
-  *Return:       
-  *Others:       调快了速度和最低亮度
-**********************************************************************************/
+ *Function:     rgb 控制
+ *Description： 用来提醒
+ *Calls:
+ *Called By:
+ *Input:
+ *Output:
+ *Return:
+ *Others:       调快了速度和最低亮度
+ **********************************************************************************/
 static void rgb_ctrl()
 {
     if (run_data->t.minute == 0 && run_data->t.second == 0 && run_data->rgb_fast == 0)
@@ -121,17 +121,39 @@ static void rgb_ctrl()
         run_data->rgb_fast = 1;
         run_data->rgb_fast_update = 0;
     }
+    Serial.print(run_data->rgb_fast);
+    Serial.println("     rgb_fast");
+    Serial.print(run_data->rgb_fast_update);
+    Serial.println("     rgb_fast_update");
     if (run_data->rgb_fast_update == 0)
     {
         if (run_data->rgb_fast == 1)
         {
-            run_data->rgb_cfg.time = 4;
-            run_data->rgb_cfg.min_brightness = 0.05;
+            run_data->rgb_cfg.time = 2;
+            run_data->rgb_cfg.min_brightness = 0.01;
+            run_data->rgb_cfg.brightness_step = 0.01;
+            run_data->rgb_cfg.step_0 = 50;
+            run_data->rgb_cfg.step_1 = 50;
+            run_data->rgb_cfg.step_2 = 50;
+            Serial.println("set fast");
         }
         else
         {
-            run_data->rgb_cfg.time = 30;
+  run_data->rgb_cfg.mode = 1;
+    run_data->rgb_cfg.min_value_0 = 1;
+    run_data->rgb_cfg.min_value_1 = 32;
+    run_data->rgb_cfg.min_value_2 = 255;
+    run_data->rgb_cfg.max_value_0 = 255;
+    run_data->rgb_cfg.max_value_1 = 255;
+    run_data->rgb_cfg.max_value_2 = 255;
+            Serial.println("set low");
+            run_data->rgb_cfg.step_0 = 1;
+            run_data->rgb_cfg.step_1 = 1;
+            run_data->rgb_cfg.step_2 = 1;
             run_data->rgb_cfg.min_brightness = 0.15;
+            run_data->rgb_cfg.max_brightness = 0.25;
+            run_data->rgb_cfg.brightness_step = 0.001;
+            run_data->rgb_cfg.time = 30;
         }
         run_data->rgb_setting = {LED_MODE_HSV,
                                  run_data->rgb_cfg.min_value_0, run_data->rgb_cfg.min_value_1, run_data->rgb_cfg.min_value_2,
@@ -162,21 +184,24 @@ static void together_process(AppController *sys,
     {
         run_data->switch_count <<= 2;
         run_data->switch_count |= 3;
-        if (TURN_LEFT == act_info->active && run_data->switch_count > 0xfe)
+        if (run_data->switch_count > 0xf)
         {
-            run_data->switch_count = 0X00;
-            run_data->time_mode -= 1; //
+            if (TURN_LEFT == act_info->active)
+            {
+                run_data->switch_count = 0X00;
+                run_data->time_mode -= 1; //
+            }
+            else if (TURN_RIGHT == act_info->active)
+            {
+                run_data->switch_count = 0X00;
+                run_data->time_mode += 1;
+            }
+            if (run_data->time_mode > 1) //限幅
+                run_data->time_mode = 1;
+            if (run_data->time_mode < -1)
+                run_data->time_mode = -1;
+            time_switch();
         }
-        else if (TURN_RIGHT == act_info->active && run_data->switch_count > 0xfe)
-        {
-            run_data->switch_count = 0X00;
-            run_data->time_mode += 1;
-        }
-        if (run_data->time_mode > 1) //限幅
-            run_data->time_mode = 1;
-        if (run_data->time_mode < -1)
-            run_data->time_mode = -1;
-        time_switch();
     }
     else if (1 == act_info->active_update) //消抖
     {
@@ -184,16 +209,15 @@ static void together_process(AppController *sys,
         run_data->switch_count &= ~3;
     }
 
-rgb_ctrl();
+    rgb_ctrl();
     if (run_data->rgb_fast == 0)
     {
         run_data->time_ms = millis() - run_data->time_start; //换算
         run_data->t.second = run_data->t_start.second - (int)(run_data->time_ms / 1000) % 60;
         run_data->t.minute = run_data->t_start.minute - (int)(run_data->time_ms / 60000) % 60;
     }
-    display_together(run_data->t,run_data->time_mode);
+    display_together(run_data->t, run_data->time_mode);
 }
-
 
 static int together_exit_callback(void *param)
 {

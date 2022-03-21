@@ -201,8 +201,8 @@ static void media_player_process(AppController *sys,
     {
         run_data->switch_count <<= 2;
         run_data->switch_count |= 3;
-        Serial.print(run_data->switch_count);
-        Serial.println("     switch_count");
+        // Serial.print(run_data->switch_count);
+        // Serial.println("     switch_count");
         // 切换方向
         if (TURN_RIGHT == act_info->active && run_data->switch_count > 0XFE)
         {
