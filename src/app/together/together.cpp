@@ -129,9 +129,9 @@ static void rgb_ctrl()
     {
         if (run_data->rgb_fast == 1)
         {
-            run_data->rgb_cfg.time = 2;
+            run_data->rgb_cfg.time = 10;
             run_data->rgb_cfg.min_brightness = 0.01;
-            run_data->rgb_cfg.brightness_step = 0.01;
+            run_data->rgb_cfg.brightness_step = 0.02;
             run_data->rgb_cfg.step_0 = 50;
             run_data->rgb_cfg.step_1 = 50;
             run_data->rgb_cfg.step_2 = 50;

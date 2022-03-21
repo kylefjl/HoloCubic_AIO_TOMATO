@@ -78,6 +78,10 @@ void AppController::write_config(SYS_UTIL_CFG *cfg)
     snprintf(tmp, 25, "%u\n", cfg->mpu_order);
     w_data += tmp;
     g_flashCfg.writeFile(APP_CTRL_CONFIG_PATH, w_data.c_str());
+       // 立即生效相关配置
+    screen.setBackLight(cfg->backLight / 100.0);
+    tft->setRotation(cfg->rotation);
+    mpu.setOrder(cfg->mpu_order);
 }
 
 void AppController::read_config(Sys_MPU_Config *cfg)
