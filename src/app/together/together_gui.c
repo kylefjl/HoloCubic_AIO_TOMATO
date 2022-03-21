@@ -15,7 +15,7 @@
 #include "gif/yangbaobao4.h"
 LV_FONT_DECLARE(lv_font_ibmplex_115);
 LV_FONT_DECLARE(lv_font_ibmplex_64);
-
+LV_FONT_DECLARE(lv_font_ibmplex_200);
 LV_FONT_DECLARE(lcNameFont);
 LV_FONT_DECLARE(lcTimeFont);
 LV_IMG_DECLARE(we)
@@ -93,7 +93,7 @@ void together_gui_init(void) // style init
     lv_style_init(&numberBig_style);
     lv_style_set_text_opa(&numberBig_style, LV_STATE_DEFAULT, LV_OPA_COVER);
     lv_style_set_text_color(&numberBig_style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
-    lv_style_set_text_font(&numberBig_style, LV_STATE_DEFAULT, &lv_font_ibmplex_115);
+    lv_style_set_text_font(&numberBig_style, LV_STATE_DEFAULT, &lv_font_ibmplex_200);
 
 }
 
@@ -110,7 +110,7 @@ void UIInit(){ // ui init
     lv_obj_add_style(clockLabel_1, LV_LABEL_PART_MAIN, &numberBig_style);
     lv_label_set_recolor(clockLabel_1, true);
     lv_label_set_text_fmt(clockLabel_1, "#ffa500 %02d# ", 25);
-     lv_obj_set_pos(clockLabel_1, 50, 80);
+     lv_obj_set_pos(clockLabel_1, 30, 40);
     clockLabel_2 = lv_label_create(together_scr, NULL);
     lv_obj_add_style(clockLabel_2, LV_LABEL_PART_MAIN, &numberSmall_style);
     lv_label_set_recolor(clockLabel_2, true);

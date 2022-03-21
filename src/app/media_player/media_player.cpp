@@ -70,6 +70,7 @@ struct MediaAppRunData
     File_Info *movie_file; // movie文件夹下的文件指针头
     File_Info *pfile;      // 指向当前播放的文件节点
     File file;
+    uint8_t switch_count;
 };
 
 static MP_Config cfg_data;
@@ -158,8 +159,8 @@ static int media_player_init(void)
     run_data->movie_pos_increate = 1;
     run_data->movie_file = NULL; // movie文件夹下的文件指针头
     run_data->pfile = NULL;      // 指向当前播放的文件节点
+    run_data->switch_count = 0x00;
     run_data->preTriggerKeyMillis = millis();
-
     run_data->movie_file = tf.listDir(MOVIE_PATH);
     if (NULL != run_data->movie_file)
     {
@@ -196,23 +197,38 @@ static void media_player_process(AppController *sys,
         return;
     }
 
-    if (TURN_RIGHT == act_info->active || TURN_LEFT == act_info->active)
+    if (TURN_RIGHT == act_info->active || TURN_LEFT == act_info->active && 1 == act_info->active_update)
     {
+        run_data->switch_count <<= 2;
+        run_data->switch_count |= 3;
+        Serial.print(run_data->switch_count);
+        Serial.println("     switch_count");
         // 切换方向
-        if (TURN_RIGHT == act_info->active)
+        if (TURN_RIGHT == act_info->active && run_data->switch_count > 0XFE)
         {
+            run_data->switch_count = 0X00;
             run_data->movie_pos_increate = 1;
-        }
-        else if (TURN_LEFT == act_info->active)
-        {
-            run_data->movie_pos_increate = -1;
-        }
-        // 结束播放
-        release_player_docoder();
-        run_data->file.close(); // 尝试关闭文件
+            release_player_docoder();
+            run_data->file.close(); // 尝试关闭文件
 
-        // 创建播放
-        video_start(true);
+            // 创建播放
+            video_start(true);
+        }
+        else if (TURN_LEFT == act_info->active && run_data->switch_count > 0XFE)
+        {
+            run_data->switch_count = 0X00;
+            run_data->movie_pos_increate = -1;
+            release_player_docoder();
+            run_data->file.close(); // 尝试关闭文件
+
+            // 创建播放
+            video_start(true);
+        }
+    }
+    else if (1 == act_info->active_update)
+    {
+        run_data->switch_count <<= 2;
+        run_data->switch_count &= ~3;
     }
 
     if (NULL == run_data->pfile)

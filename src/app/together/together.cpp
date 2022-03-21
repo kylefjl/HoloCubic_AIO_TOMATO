@@ -17,6 +17,7 @@ struct TogetherAppRunData
     bool rgb_fast_update; //使能
     RgbParam rgb_setting;
     int time_mode;
+    uint8_t switch_count;
 };
 
 // 常驻数据，可以不随APP的生命周期而释放或删除
@@ -45,6 +46,7 @@ static int together_init(void)
     run_data->t = run_data->t_start;
     run_data->rgb_fast = 0;
     run_data->rgb_fast_update = 0;
+    run_data->switch_count = 0;
 
     run_data->rgb_cfg.mode = 1;
     run_data->rgb_cfg.min_value_0 = 1;
@@ -83,16 +85,22 @@ static void together_process(AppController *sys,
         return;
     }
 
-    if (TURN_LEFT == act_info->active || TURN_RIGHT == act_info->active) //休息时间，初始化一次
+    if (TURN_LEFT == act_info->active || TURN_RIGHT == act_info->active && 1 == act_info->active_update) //休息时间，初始化一次
     {
-        if (TURN_LEFT == act_info->active)
+        run_data->switch_count <<= 2;
+        run_data->switch_count |= 3;
+        if (TURN_LEFT == act_info->active&&run_data->switch_count>0xfe)
         {
+            run_data->switch_count = 0X00;
             run_data->time_mode -= 1;
         }
-        else
+        else if (TURN_RIGHT == act_info->active&&run_data->switch_count>0xfe)
         {
+            run_data->switch_count = 0X00;
             run_data->time_mode += 1;
         }
+        Serial.println("time_mode");
+        Serial.print(run_data->time_mode);
         if (run_data->time_mode > 1)
             run_data->time_mode = 1;
         if (run_data->time_mode < -1)
@@ -129,6 +137,11 @@ static void together_process(AppController *sys,
             break;
         }
     }
+    else if (1 == act_info->active_update)
+    {
+        run_data->switch_count <<= 2;
+        run_data->switch_count &= ~3;
+    }
 
     if (run_data->t.minute == 0 && run_data->t.second == 0 && run_data->rgb_fast == 0)
     {
@@ -146,14 +159,13 @@ static void together_process(AppController *sys,
     {
         if (run_data->rgb_fast == 1)
         {
-              run_data->rgb_cfg.time = 10;
+            run_data->rgb_cfg.time = 4;
             run_data->rgb_cfg.min_brightness = 0.05;
         }
-  
 
         else
         {
-             run_data->rgb_cfg.time = 30;
+            run_data->rgb_cfg.time = 30;
             run_data->rgb_cfg.min_brightness = 0.15;
         }
         run_data->rgb_setting = {LED_MODE_HSV,
@@ -166,7 +178,7 @@ static void together_process(AppController *sys,
         run_data->rgb_fast_update = 1;
     }
     display_together(run_data->t);
-    delay(300);
+    delay(500);
 }
 
 static int together_exit_callback(void *param)

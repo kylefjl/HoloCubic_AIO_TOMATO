@@ -46,6 +46,7 @@ struct Sys_MPU_Config
 struct Imu_Action
 {
     ACTIVE_TYPE active;
+    bool active_update;
     boolean isValid;
     boolean long_time;
     int16_t v_ax; // v表示虚拟参数（用于调整6050的初始方位）

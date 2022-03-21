@@ -86,6 +86,7 @@ Imu_Action *IMU::update(int interval)
     {
         if (!action_info.isValid)
         {
+            action_info.active_update=1;//更新
             if (action_info.v_ay > 4000)
             {
                 encoder_diff--;
@@ -192,6 +193,11 @@ Imu_Action *IMU::update(int interval)
 
         last_update_time = millis();
     }
+    else 
+    {
+        action_info.active_update=0;//未更新
+    }
+    
     return &action_info;
 }
 
