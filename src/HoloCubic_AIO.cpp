@@ -17,8 +17,8 @@
 
 #include "app/weather/weather.h"
 #include "app/bilibili_fans/bilibili.h"
-//#include "app/tomato/tomato.h"
-#include "app/together/together.h"
+#include "app/tomato/tomato.h"
+//#include "app/together/together.h"
 #include "app/server/server.h"
 #include "app/idea_anim/idea.h"
 #include "app/settings/settings.h"
@@ -85,8 +85,8 @@ void setup()
     app_controller->init();
     app_controller->app_install(&weather_app);
     //app_controller->app_install(&tomato_app);
-    app_controller->app_install(&together_app);
-    //app_controller->app_install(&tomato_app);
+    //app_controller->app_install(&together_app);
+    app_controller->app_install(&tomato_app);
     app_controller->app_install(&weather_old_app);
     app_controller->app_install(&picture_app);
     app_controller->app_install(&media_app);

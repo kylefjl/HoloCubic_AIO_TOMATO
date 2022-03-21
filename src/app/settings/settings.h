@@ -1,5 +1,5 @@
-#ifndef APP_TOMATO_H
-#define APP_TOMATO_H
+#ifndef APP_SETTINGS_H
+#define APP_SETTINGS_H
 
 #include "sys/interface.h"
 

@@ -1,12 +1,12 @@
-#include "together.h"
-#include "together_gui.h"
+#include "tomato.h"
+#include "tomato_gui.h"
 #include "sys/app_controller.h"
 #include "common.h"
 #include "ESP32Time.h"
-#define TOGETHER_APP_NAME "Tomato"
+#define TOMATO_APP_NAME "Tomato"
 
 // 动态数据，APP的生命周期结束也需要释放它
-struct TogetherAppRunData
+struct TomatoAppRunData
 {
     long long time_start; //开始毫秒数
     long long time_ms;    //毫秒数
@@ -21,25 +21,25 @@ struct TogetherAppRunData
 };
 
 // 常驻数据，可以不随APP的生命周期而释放或删除
-struct TogetherAppForeverData
+struct TomatoAppForeverData
 {
 };
 
 static bool hadOpened = false;
 
 // 保存APP运行时的参数信息，理论上关闭APP时推荐在 xxx_exit_callback 中释放掉
-static TogetherAppRunData *run_data = NULL;
+static TomatoAppRunData *run_data = NULL;
 
 // 当然你也可以添加恒定在内存中的少量变量（退出时不用释放，实现第二次启动时可以读取）
 // 考虑到所有的APP公用内存，尽量减少 forever_data 的数据占用
-static TogetherAppForeverData forever_data;
+static TomatoAppForeverData forever_data;
 
-static int together_init(void)
+static int tomato_init(void)
 {
     // 初始化运行时的参数
-    together_gui_init();
+    tomato_gui_init();
     // 初始化运行时参数
-    run_data = (TogetherAppRunData *)calloc(1, sizeof(TogetherAppRunData));
+    run_data = (TomatoAppRunData *)calloc(1, sizeof(TomatoAppRunData));
     run_data->time_start = millis();
     run_data->t_start.second = 59; //专注时间，初始化一次
     run_data->t_start.minute = 24;
@@ -193,7 +193,7 @@ static void rgb_reset()
     set_rgb(&(run_data->rgb_setting));
 }
 
-static void together_process(AppController *sys,
+static void tomato_process(AppController *sys,
                              const Imu_Action *act_info)
 {
     //  struct tm tt;
@@ -243,12 +243,12 @@ static void together_process(AppController *sys,
         run_data->t.second = run_data->t_start.second - (int)(run_data->time_ms / 1000) % 60;
         run_data->t.minute = run_data->t_start.minute - (int)(run_data->time_ms / 60000) % 60;
     }
-    display_together(run_data->t, run_data->time_mode);
+    display_tomato(run_data->t, run_data->time_mode);
 }
 
-static int together_exit_callback(void *param)
+static int tomato_exit_callback(void *param)
 {
-    together_gui_del();
+    tomato_gui_del();
     rgb_reset();
     if (run_data != NULL)
     {
@@ -258,7 +258,7 @@ static int together_exit_callback(void *param)
         Serial.println("EXIT\n");
     }
 }
-static void together_message_handle(const char *from, const char *to, APP_MESSAGE_TYPE type, void *message, void *ext_info)
+static void tomato_message_handle(const char *from, const char *to, APP_MESSAGE_TYPE type, void *message, void *ext_info)
 {
     switch (type)
     {
@@ -269,6 +269,6 @@ static void together_message_handle(const char *from, const char *to, APP_MESSAG
     }
 }
 
-APP_OBJ together_app = {TOGETHER_APP_NAME, &app_together_icon, "Author LC\nVersion 1.0.0\n",
-                        together_init, together_process,
-                        together_exit_callback, together_message_handle};
+APP_OBJ tomato_app = {TOMATO_APP_NAME, &app_tomato_icon, "Author LC\nVersion 1.0.0\n",
+                        tomato_init, tomato_process,
+                        tomato_exit_callback, tomato_message_handle};

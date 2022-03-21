@@ -7,10 +7,10 @@
 #ifndef LV_ATTRIBUTE_MEM_ALIGN
 #define LV_ATTRIBUTE_MEM_ALIGN
 #endif
-#ifndef LV_ATTRIBUTE_IMG_APP_TOGETHER_ICON
-#define LV_ATTRIBUTE_IMG_APP_TOGETHER_ICON
+#ifndef LV_ATTRIBUTE_IMG_APP_TOMATO_ICON
+#define LV_ATTRIBUTE_IMG_APP_TOMATO_ICON
 #endif
-const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_IMG_APP_TOGETHER_ICON uint8_t app_together_icon_map[] = {
+const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_IMG_APP_TOMATO_ICON uint8_t app_tomato_icon_map[] = {
 0x00, 0x00, 0x00, 0x00, 	/*Color of index 0*/
   0x56, 0x52, 0xe9, 0x2c, 	/*Color of index 1*/
   0x56, 0x51, 0xe7, 0x8a, 	/*Color of index 2*/
@@ -159,12 +159,12 @@ const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_IMG_APP_TOGETHER_ICON uint8_t app_toge
 };
 
 
-const lv_img_dsc_t app_together_icon = {
+const lv_img_dsc_t app_tomato_icon = {
   .header.cf = LV_IMG_CF_INDEXED_4BIT,
   .header.always_zero = 0,
   .header.reserved = 0,
   .header.w = 128,
   .header.h = 128,
   .data_size = 8257,
-  .data = app_together_icon_map,
+  .data = app_tomato_icon_map,
 };
