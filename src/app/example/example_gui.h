@@ -1,28 +1,19 @@
-#ifndef APP_TOMATO_GUI_H
-#define APP_TOMATO_GUI_H
-struct TimeStr
-{
-    int month;
-    int day;
-    int hour;
-    int minute;
-    int second;
-    int weekday;
-};
+#ifndef APP_EXAMPLE_GUI_H
+#define APP_EXAMPLE_GUI_H
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-
 
 #include "lvgl.h"
 #define ANIEND                      \
     while (lv_anim_count_running()) \
         lv_task_handler(); //等待动画完成
 
-    void tomato_gui_init(void);
-    void tomato_gui_del(void);
-   void display_tomato(struct TimeStr t,int mode);
+    void example_gui_init(void);
+    void display_example(const char *file_name, lv_scr_load_anim_t anim_type);
+    void example_gui_del(void);
 
 #ifdef __cplusplus
 } /* extern "C" */
@@ -35,7 +26,7 @@ extern "C"
 #endif
 
 #include "lvgl.h"
-    extern const lv_img_dsc_t app_tomato_icon;
+    extern const lv_img_dsc_t app_example;
 
 #ifdef __cplusplus
 } /* extern "C" */

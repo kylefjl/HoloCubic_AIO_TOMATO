@@ -17,8 +17,6 @@
 
 #include "app/weather/weather.h"
 #include "app/bilibili_fans/bilibili.h"
-#include "app/tomato/tomato.h"
-//#include "app/together/together.h"
 #include "app/server/server.h"
 #include "app/idea_anim/idea.h"
 #include "app/settings/settings.h"
@@ -33,7 +31,7 @@
 #include <esp32-hal.h>
 
 /*** Component objects **7*/
-Imu_Action *act_info;          // 存放mpu6050返回的数据
+ImuAction *act_info;          // 存放mpu6050返回的数据
 AppController *app_controller; // APP控制器
 
 void setup()
@@ -84,9 +82,6 @@ void setup()
 
     app_controller->init();
     app_controller->app_install(&weather_app);
-    //app_controller->app_install(&tomato_app);
-    //app_controller->app_install(&together_app);
-    app_controller->app_install(&tomato_app);
     app_controller->app_install(&weather_old_app);
     app_controller->app_install(&picture_app);
     app_controller->app_install(&media_app);
@@ -139,6 +134,6 @@ void loop()
     }
 #endif
     app_controller->main_process(act_info); // 运行当前进程
-
+    // Serial.println(ambLight.getLux() / 50.0);
     // rgb.setBrightness(ambLight.getLux() / 500.0);
 }
