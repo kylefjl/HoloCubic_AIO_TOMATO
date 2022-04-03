@@ -86,6 +86,7 @@ ImuAction *IMU::update(int interval)
     {
         if (!action_info.isValid)
         {
+            action_info.active_update=1;//更新
             if (action_info.v_ay > 4000)
             {
                 encoder_diff--;
@@ -192,10 +193,15 @@ ImuAction *IMU::update(int interval)
 
         last_update_time = millis();
     }
+    else 
+    {
+        action_info.active_update=0;//未更新
+    }
+    
     return &action_info;
 }
 
-void IMU::getVirtureMotion6(ImuAction *action_info)
+void IMU::getVirtureMotion6(Imu_Action *action_info)
 {
     mpu.getMotion6(&(action_info->v_ax), &(action_info->v_ay),
                    &(action_info->v_az), &(action_info->v_gx),

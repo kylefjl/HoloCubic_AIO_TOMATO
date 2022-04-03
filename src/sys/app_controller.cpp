@@ -3,7 +3,6 @@
 #include "common.h"
 #include "interface.h"
 #include "Arduino.h"
-
 const char *app_event_type_info[] = {"APP_MESSAGE_WIFI_CONN", "APP_MESSAGE_WIFI_AP",
                                      "APP_MESSAGE_WIFI_ALIVE", "APP_MESSAGE_WIFI_DISCONN",
                                      "APP_MESSAGE_UPDATE_TIME", "APP_MESSAGE_GET_PARAM",
