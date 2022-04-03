@@ -201,7 +201,7 @@ ImuAction *IMU::update(int interval)
     return &action_info;
 }
 
-void IMU::getVirtureMotion6(Imu_Action *action_info)
+void IMU::getVirtureMotion6(ImuAction *action_info)
 {
     mpu.getMotion6(&(action_info->v_ax), &(action_info->v_ay),
                    &(action_info->v_az), &(action_info->v_gx),

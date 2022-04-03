@@ -194,7 +194,7 @@ static void rgb_reset()
 }
 
 static void tomato_process(AppController *sys,
-                             const Imu_Action *act_info)
+                             const ImuAction *act_info)
 {
     //  struct tm tt;
     if (RETURN == act_info->active)
