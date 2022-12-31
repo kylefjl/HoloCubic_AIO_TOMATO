@@ -9,7 +9,7 @@
 struct TomatoAppRunData
 {
     long long time_start; //开始毫秒数
-    long long time_ms;    //毫秒数
+    long long time_ms;    //毫秒数,对应倒计时显示的时间
     TimeStr t;            //时间结构体
     TimeStr t_start;      //倒计时结构体
     RgbConfig rgb_cfg;    //灯效
@@ -207,8 +207,8 @@ static void tomato_process(AppController *sys,
     {
         static int  last_mode;
         run_data->switch_count <<= 2;
-        run_data->switch_count |= 3;
-        if (run_data->switch_count > 0xf)
+        run_data->switch_count |= 3;//写11并移位
+        if (run_data->switch_count > 0xf)//只有连续的触发才进行切换
         {
             if (TURN_LEFT == act_info->active)
             {
@@ -226,29 +226,28 @@ static void tomato_process(AppController *sys,
                 run_data->time_mode = -1;
             if(last_mode!=run_data->time_mode)
             {
-                time_switch();
+                time_switch();//发生模式切换时运行
             }
             last_mode=run_data->time_mode;
         }
     }
-    else  //消抖
+    else  //消抖 未触发，写00并移位
     {
         run_data->switch_count <<= 2;
         run_data->switch_count &= ~3;
     }
-    if (run_data->t.minute == 0 && run_data->t.second == 0 && run_data->rgb_fast == 0)
+    if (run_data->t.minute == 0 && run_data->t.second == 0 && run_data->rgb_fast == 0)//到点，rgb闪烁提醒
     {
         run_data->rgb_fast = 1;
         run_data->rgb_fast_update = 0;
     }
     rgb_ctrl();
-    if (run_data->rgb_fast == 0)
+    if (run_data->rgb_fast == 0)//未到点持续计算之间
     {
-        int ms_count=999+(run_data->t_start.second+run_data->t_start.minute*60)*1000;
-        run_data->time_ms = millis() - run_data->time_start; //换算
-        
-        run_data->t.second = (ms_count-run_data->time_ms)%60000/1000;
-        run_data->t.minute =  (ms_count-run_data->time_ms)/60/1000;
+        int ms_count=999+(run_data->t_start.second+run_data->t_start.minute*60)*1000;//倒计时时长，单位ms，加999ms是为了可以显示x分00秒，否则会直接闪过
+        run_data->time_ms = ms_count-(millis() - run_data->time_start); //倒计时长减去已经过去的时间就是要显示的时间
+        run_data->t.second = run_data->time_ms%60000/1000;
+        run_data->t.minute = run_data->time_ms/60/1000;
     }
     // Serial.print(run_data->rgb_fast);
     display_tomato(run_data->t, run_data->time_mode);

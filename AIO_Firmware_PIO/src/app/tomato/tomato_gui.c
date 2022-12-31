@@ -30,43 +30,34 @@ void tomato_gui_init(void) // style init
     lv_style_set_bg_color(&default_style, lv_color_hex(0x000000));
     lv_obj_add_style(tomato_scr, &default_style, LV_STATE_DEFAULT);
 
-    lv_style_init(&chFont_style);
+    lv_style_init(&chFont_style);//汉字
     lv_style_set_text_opa(&chFont_style, LV_OPA_COVER);
     lv_style_set_text_color(&chFont_style, lv_color_hex(0xffffff));
     lv_style_set_text_font(&chFont_style, &tomato_chFont_20);
 
-    lv_style_init(&numberSmall_style);
+    lv_style_init(&numberSmall_style);//数字 小
     lv_style_set_text_opa(&numberSmall_style, LV_OPA_COVER);
     lv_style_set_text_color(&numberSmall_style, lv_color_hex(0xffffff));
     lv_style_set_text_font(&numberSmall_style, &lv_font_ibmplex_64);
 
-    lv_style_init(&numberBig_style);
+    lv_style_init(&numberBig_style);//数字 大
     lv_style_set_text_opa(&numberBig_style, LV_OPA_COVER);
     lv_style_set_text_color(&numberBig_style, lv_color_hex(0xffffff));
     lv_style_set_text_font(&numberBig_style, &lv_font_ibmplex_200);
 }
 
 void UIInit()
-{                                     // ui init
-    lv_obj_t *act_obj = lv_scr_act(); // 获取当前活动页
-                                      // if (act_obj == tomato_scr)
-                                      //     return;
+{                                                                         
     if (tomato_scr == lv_scr_act())
-        return;
+        return;//如果已经是当前页，退出
     else
-        lv_obj_clean(lv_scr_act());
+        lv_obj_clean(lv_scr_act());//否则，清除页面
     if (tomato_scr == NULL)
     {
         tomato_scr = lv_obj_create(NULL);
     }
-    // if (tomato_scr == lv_scr_act())
-    //     return;
-    // else
-    //     lv_obj_clean(lv_scr_act());
-   // Serial.println("ui set ");
 
     txtLabel = lv_label_create(tomato_scr);
-    // lv_obj_add_style(txtLabel, LV_LABEL_PART_MAIN, &chFont_style);
     lv_obj_add_style(txtLabel, &chFont_style, LV_STATE_DEFAULT);
 
     lv_label_set_recolor(txtLabel, true);
@@ -83,10 +74,6 @@ void UIInit()
     lv_label_set_recolor(clockLabel_2, true);
     lv_label_set_text_fmt(clockLabel_2, "%02d", 00);
     lv_obj_set_pos(clockLabel_2, 175, 120);
-    // lv_obj_align(clockLabel_2, clockLabel_1, 5, 0);
-
-    // lv_obj_align(clockLabel_2, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
-    // lv_obj_align(clockLabel_1, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
 
     lv_scr_load(tomato_scr);
 }
@@ -95,7 +82,7 @@ void display_tomato(struct TimeStr t, int mode)
 {
     UIInit();
     int second=0,minute=0;
-    if(t.second==60)
+    if(t.second==60)//如果秒是60，显示为1分00秒
     {
         second=0;
         minute=t.minute+1;
