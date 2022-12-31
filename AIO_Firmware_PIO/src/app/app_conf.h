@@ -110,4 +110,11 @@
 #include "app/weather_old/weather_old.h"
 #endif
 
+// 番茄钟 APP
+#define APP_TOMATO_USE 1
+#if APP_TOMATO_USE
+#include "app/tomato/tomato.h"
+#endif
+
+
 #endif

@@ -14,7 +14,6 @@
 
 #include "common.h"
 #include "sys/app_controller.h"
-
 #include "app/app_conf.h"
 
 #include <SPIFFS.h>
@@ -135,6 +134,9 @@ void setup()
 #if APP_WEATHER_USE
     app_controller->app_install(&weather_app);
 #endif
+#if APP_TOMATO_USE
+    app_controller->app_install(&tomato_app);
+#endif
 #if APP_WEATHER_OLD_USE
     app_controller->app_install(&weather_old_app);
 #endif
@@ -177,6 +179,7 @@ void setup()
 #if APP_PC_RESOURCE_USE
     app_controller->app_install(&pc_resource_app);
 #endif
+
     // 自启动APP
     app_controller->app_auto_start();
 
