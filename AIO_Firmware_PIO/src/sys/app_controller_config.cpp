@@ -22,13 +22,14 @@ void AppController::read_config(SysUtilConfig *cfg)
         cfg->rotation = 4;             // 屏幕旋转方向
         cfg->auto_calibration_mpu = 1; // 是否自动校准陀螺仪 0关闭自动校准 1打开自动校准
         cfg->mpu_order = 0;            // 操作方向
+        cfg->auto_start_app = "None";  // 无指定开机自启APP
         this->write_config(cfg);
     }
     else
     {
         // 解析数据
-        char *param[11] = {0};
-        analyseParam(info, 11, param);
+        char *param[12] = {0};
+        analyseParam(info, 12, param);
         cfg->ssid_0 = param[0];
         cfg->password_0 = param[1];
         cfg->ssid_1 = param[2];
@@ -40,6 +41,7 @@ void AppController::read_config(SysUtilConfig *cfg)
         cfg->rotation = atol(param[8]);
         cfg->auto_calibration_mpu = atol(param[9]);
         cfg->mpu_order = atol(param[10]);
+        cfg->auto_start_app = param[11]; // 开机自启APP的name
     }
 }
 
@@ -73,6 +75,9 @@ void AppController::write_config(SysUtilConfig *cfg)
     memset(tmp, 0, 25);
     snprintf(tmp, 25, "%u\n", cfg->mpu_order);
     w_data += tmp;
+
+    w_data = w_data + cfg->auto_start_app + "\n";
+
     g_flashCfg.writeFile(APP_CTRL_CONFIG_PATH, w_data.c_str());
 
     // 立即生效相关配置
@@ -239,10 +244,20 @@ void AppController::write_config(RgbConfig *cfg)
     snprintf(tmp, 25, "%d\n", cfg->step_2);
     w_data += tmp;
 
+    if (cfg->min_brightness < 0.01)
+    {
+        // 限制
+        cfg->min_brightness = 0.01;
+    }
     memset(tmp, 0, 25);
     snprintf(tmp, 25, "%f\n", cfg->min_brightness);
     w_data += tmp;
 
+    if (cfg->max_brightness < 0.01)
+    {
+        // 限制
+        cfg->max_brightness = 0.01;
+    }
     memset(tmp, 0, 25);
     snprintf(tmp, 25, "%f\n", cfg->max_brightness);
     w_data += tmp;
@@ -251,6 +266,10 @@ void AppController::write_config(RgbConfig *cfg)
     snprintf(tmp, 25, "%f\n", cfg->brightness_step);
     w_data += tmp;
 
+    if (cfg->time < 10)
+    {
+        cfg->time = 10;
+    }
     memset(tmp, 0, 25);
     snprintf(tmp, 25, "%d\n", cfg->time);
     w_data += tmp;
@@ -265,7 +284,7 @@ void AppController::write_config(RgbConfig *cfg)
                             rgb_cfg.min_brightness, rgb_cfg.max_brightness,
                             rgb_cfg.brightness_step, rgb_cfg.time};
     // 初始化RGB任务
-    rgb_thread_init(&rgb_setting);
+    set_rgb_and_run(&rgb_setting);
 }
 
 void AppController::deal_config(APP_MESSAGE_TYPE type,
@@ -332,6 +351,10 @@ void AppController::deal_config(APP_MESSAGE_TYPE type,
         {
             snprintf(value, 32, "%u", rgb_cfg.time);
         }
+        else if (!strcmp(key, "auto_start_app"))
+        {
+            snprintf(value, 32, "%s", sys_cfg.auto_start_app.c_str());
+        }
     }
     break;
     case APP_MESSAGE_SET_PARAM:
@@ -396,6 +419,10 @@ void AppController::deal_config(APP_MESSAGE_TYPE type,
         {
             rgb_cfg.time = atol(value);
         }
+        else if (!strcmp(key, "auto_start_app"))
+        {
+            sys_cfg.auto_start_app = value;
+        }
     }
     break;
     case APP_MESSAGE_READ_CFG:
@@ -412,5 +439,7 @@ void AppController::deal_config(APP_MESSAGE_TYPE type,
         write_config(&rgb_cfg);
     }
     break;
+    default:
+        break;
     }
 }

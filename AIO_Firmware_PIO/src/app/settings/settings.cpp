@@ -145,23 +145,25 @@ int analysis_uart_data(int data_len, uint8_t *data)
         memcpy(data, data + rear_ind + 1, data_len - (rear_ind + 1));
         run_data->recv_len = data_len - (rear_ind + 1);
     }
+    return 0;
 }
 
-static int settings_init(void)
+static int settings_init(AppController *sys)
 {
     // 初始化运行时的参数
     settings_gui_init();
 
-    display_settings(AIO_VERSION, "v 2.0.0", LV_SCR_LOAD_ANIM_NONE);
+    display_settings(AIO_VERSION, "v 2.3.0", LV_SCR_LOAD_ANIM_NONE);
 
     // 初始化运行时参数
     run_data = (SettingsAppRunData *)calloc(1, sizeof(SettingsAppRunData));
     run_data->recv_buf = (uint8_t *)malloc(RECV_BUF_LEN);
     run_data->recv_len = 0;
+    return 0;
 }
 
 static void settings_process(AppController *sys,
-                      const ImuAction *act_info)
+                             const ImuAction *act_info)
 {
     if (RETURN == act_info->active)
     {
@@ -195,17 +197,29 @@ static void settings_process(AppController *sys,
     // delay(200);
 }
 
+static void settings_background_task(AppController *sys,
+                                     const ImuAction *act_info)
+{
+    // 本函数为后台任务，主控制器会间隔一分钟调用此函数
+    // 本函数尽量只调用"常驻数据",其他变量可能会因为生命周期的缘故已经释放
+}
+
 static int settings_exit_callback(void *param)
 {
     settings_gui_del();
-    // 释放资源
-    free(run_data);
-    run_data = NULL;
+
+    // 释放运行数据
+    if (NULL != run_data)
+    {
+        free(run_data);
+        run_data = NULL;
+    }
+    return 0;
 }
 
 static void settings_message_handle(const char *from, const char *to,
-                             APP_MESSAGE_TYPE type, void *message,
-                             void *ext_info)
+                                    APP_MESSAGE_TYPE type, void *message,
+                                    void *ext_info)
 {
     // 目前事件主要是wifi开关类事件（用于功耗控制）
     switch (type)
@@ -242,5 +256,5 @@ static void settings_message_handle(const char *from, const char *to,
 }
 
 APP_OBJ settings_app = {SETTINGS_APP_NAME, &app_settings, "",
-                        settings_init, settings_process,
+                        settings_init, settings_process, settings_background_task,
                         settings_exit_callback, settings_message_handle};

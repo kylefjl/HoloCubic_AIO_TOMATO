@@ -5,6 +5,7 @@
 #include "common.h"
 #include "server.h"
 #include "web_setting.h"
+#include "app/app_conf.h"
 #include "FS.h"
 #include "HardwareSerial.h"
 #include <esp32-hal.h>
@@ -59,6 +60,7 @@ String file_size(int bytes)
                     "<label class=\"input\"><span>屏幕方向 (0~5可选)</span><input type=\"text\"name=\"rotation\"value=\"%s\"></label>"                                                                                                                            \
                     "<label class=\"input\"><span>操作方向（0~15可选）</span><input type=\"text\"name=\"mpu_order\"value=\"%s\"></label>"                                                                                                                       \
                     "<label class=\"input\"><span>MPU6050自动校准</span><input class=\"radio\" type=\"radio\" value=\"0\" name=\"auto_calibration_mpu\" %s>关闭<input class=\"radio\" type=\"radio\" value=\"1\" name=\"auto_calibration_mpu\" %s>开启</label>" \
+                    "<label class=\"input\"><span>开机自启的APP名字</span><input type=\"text\"name=\"auto_start_app\"value=\"%s\"></label>"                                                                                                                      \
                     "</label><input class=\"btn\" type=\"submit\" name=\"submit\" value=\"保存\"></form>"
 
 #define RGB_SETTING "<form method=\"GET\" action=\"saveRgbConf\">"                                                                                             \
@@ -88,6 +90,11 @@ String file_size(int bytes)
                          "<label class=\"input\"><span>数据更新周期（毫秒）</span><input type=\"text\"name=\"updataInterval\"value=\"%s\"></label>" \
                          "</label><input class=\"btn\" type=\"submit\" name=\"submit\" value=\"保存\"></form>"
 
+#define STOCK_SETTING "<form method=\"GET\" action=\"saveStockConf\">"                                                                                          \
+                      "<label class=\"input\"><span>股票代码,例如：sz000001或sh601126</span><input type=\"text\"name=\"stock_id\"value=\"%s\"></label>" \
+                      "<label class=\"input\"><span>数据更新周期（毫秒）</span><input type=\"text\"name=\"updataInterval\"value=\"%s\"></label>"      \
+                      "</label><input class=\"btn\" type=\"submit\" name=\"submit\" value=\"保存\"></form>"
+
 #define PICTURE_SETTING "<form method=\"GET\" action=\"savePictureConf\">"                                                                                         \
                         "<label class=\"input\"><span>自动切换时间间隔（毫秒）</span><input type=\"text\"name=\"switchInterval\"value=\"%s\"></label>" \
                         "</label><input class=\"btn\" type=\"submit\" name=\"submit\" value=\"保存\"></form>"
@@ -97,9 +104,31 @@ String file_size(int bytes)
                       "<label class=\"input\"><span>功耗控制（0低发热 1性能优先）</span><input type=\"text\"name=\"powerFlag\"value=\"%s\"></label>"  \
                       "</label><input class=\"btn\" type=\"submit\" name=\"submit\" value=\"保存\"></form>"
 
-#define SCREEN_SETTING "<form method=\"GET\" action=\"saveScreenConf\">"                                                                                             \
-                      "<label class=\"input\"><span>功耗控制（0低发热 1性能优先）</span><input type=\"text\"name=\"powerFlag\"value=\"%s\"></label>"  \
-                      "</label><input class=\"btn\" type=\"submit\" name=\"submit\" value=\"保存\"></form>"
+#define SCREEN_SETTING "<form method=\"GET\" action=\"saveScreenConf\">"                                                                                           \
+                       "<label class=\"input\"><span>功耗控制（0低发热 1性能优先）</span><input type=\"text\"name=\"powerFlag\"value=\"%s\"></label>" \
+                       "</label><input class=\"btn\" type=\"submit\" name=\"submit\" value=\"保存\"></form>"
+
+#define HEARTBEAT_SETTING "<form method=\"GET\" action=\"saveHeartbeatConf\">"                                                                            \
+                          "<label class=\"input\"><span>Role(0:heart,1:beat)</span><input type=\"text\"name=\"role\"value=\"%s\"></label>"                \
+                          "<label class=\"input\"><span>MQTT ClientID(推荐QQ号)</span><input type=\"text\"name=\"mqtt_client_id\"value=\"%s\"></label>"                    \  
+                          "<label class=\"input\"><span>MQTT SubTopic(推荐对方QQ号)</span><input type=\"text\"name=\"mqtt_subtopic\"value=\"%s\"></label>"                    \  
+                        "<label class=\"input\"><span>MQTT ServerIp</span><input type=\"text\"name=\"mqtt_server\"value=\"%s\"></label>"                    \  
+                        "<label class=\"input\"><span>MQTT 端口号(1883)</span><input type=\"text\"name=\"mqtt_port\"value=\"%s\"></label>"             \
+                        "<label class=\"input\"><span>MQTT 服务用户名(可不填)</span><input type=\"text\"name=\"mqtt_user\"value=\"%s\"></label>"  \
+                        "<label class=\"input\"><span>MQTT 服务密码(可不填)</span><input type=\"text\"name=\"mqtt_password\"value=\"%s\"></label>" \
+                        "</label><input class=\"btn\" type=\"submit\" name=\"submit\" value=\"保存\"></form>"
+
+#define ANNIVERSARY_SETTING "<form method=\"GET\" action=\"saveAnniversaryConf\">"                                                      \
+                            "<label class=\"input\"><span>事件0</span><input type=\"text\"name=\"event_name0\"value=\"%s\"></label>"  \
+                            "<label class=\"input\"><span>日期0</span><input type=\"text\"name=\"target_date0\"value=\"%s\"></label>" \
+                            "<label class=\"input\"><span>事件1</span><input type=\"text\"name=\"event_name1\"value=\"%s\"></label>"  \
+                            "<label class=\"input\"><span>日期1</span><input type=\"text\"name=\"target_date1\"value=\"%s\"></label>" \
+                            "</label><input class=\"btn\" type=\"submit\" name=\"submit\" value=\"保存\"></form>"
+
+#define REMOTR_SENSOR_SETTING "<form method=\"GET\" action=\"savePCResourceConf\">"                                                                                       \
+                              "<label class=\"input\"><span>PC地址</span><input type=\"text\"name=\"pc_ipaddr\"value=\"%s\"></label>"                                   \
+                              "<label class=\"input\"><span>传感器数据更新间隔(ms)</span><input type=\"text\"name=\"sensorUpdataInterval\"value=\"%s\"></label>" \
+                              "</label><input class=\"btn\" type=\"submit\" name=\"submit\" value=\"保存\"></form>"
 
 void init_page_header()
 {
@@ -145,14 +174,40 @@ void init_page_header()
     webpage_header += F("<li><a href='/download'>Download</a></li>");
     webpage_header += F("<li><a href='/upload'>Upload</a></li>");
     webpage_header += F("<li><a href='/delete'>Delete</a></li>");
+
     webpage_header += F("<li><a href='/sys_setting'>系统设置</a></li>");
+
     webpage_header += F("<li><a href='/rgb_setting'>RGB设置</a></li>");
+#if APP_WEATHER_USE
     webpage_header += F("<li><a href='/weather_setting'>新版天气</a></li>");
+#endif
+#if APP_WEATHER_OLD_USE
     webpage_header += F("<li><a href='/weather_old_setting'>旧版天气</a></li>");
+#endif
+#if APP_BILIBILI_FANS_USE
     webpage_header += F("<li><a href='/bili_setting'>B站</a></li>");
+#endif
+#if APP_PICTURE_USE
     webpage_header += F("<li><a href='/picture_setting'>相册</a></li>");
+#endif
+#if APP_MEDIA_PLAYER_USE
     webpage_header += F("<li><a href='/media_setting'>媒体播放器</a></li>");
+#endif
+#if APP_SCREEN_SHARE_USE
     webpage_header += F("<li><a href='/screen_setting'>屏幕分享</a></li>");
+#endif
+#if APP_HEARTBEAT_USE
+    webpage_header += F("<li><a href='/heartbeat_setting'>心跳</a></li>");
+#endif
+#if APP_ANNIVERSARY_USE
+    webpage_header += F("<li><a href='/anniversary_setting'>纪念日</a></li>");
+#endif
+#if APP_STOCK_MARKET_USE
+    webpage_header += F("<li><a href='/stock_setting'>股票行情</a></li>");
+#endif
+#if APP_PC_RESOURCE_USE
+    webpage_header += F("<li><a href='/pc_resource_setting'>PC资源监控</a></li>");
+#endif
     webpage_header += F("</ul>");
 }
 
@@ -184,6 +239,7 @@ void sys_setting()
     char max_brightness[32];
     char time[32];
     char auto_calibration_mpu[32];
+    char auto_start_app[32];
     // 读取数据
     app_controller->send_to(SERVER_APP_NAME, "AppCtrl", APP_MESSAGE_READ_CFG,
                             NULL, NULL);
@@ -207,6 +263,8 @@ void sys_setting()
                             (void *)"time", time);
     app_controller->send_to(SERVER_APP_NAME, "AppCtrl", APP_MESSAGE_GET_PARAM,
                             (void *)"auto_calibration_mpu", auto_calibration_mpu);
+    app_controller->send_to(SERVER_APP_NAME, "AppCtrl", APP_MESSAGE_GET_PARAM,
+                            (void *)"auto_start_app", auto_start_app);
     SysUtilConfig cfg = app_controller->sys_cfg;
     // 主要为了处理启停MPU自动校准的单选框
     if (0 == cfg.auto_calibration_mpu)
@@ -214,14 +272,16 @@ void sys_setting()
         sprintf(buf, SYS_SETTING,
                 ssid_0, password_0,
                 power_mode, backLight, rotation,
-                mpu_order, "checked=\"checked\"", "");
+                mpu_order, "checked=\"checked\"", "",
+                auto_start_app);
     }
     else
     {
         sprintf(buf, SYS_SETTING,
                 ssid_0, password_0,
                 power_mode, backLight, rotation,
-                mpu_order, "", "checked=\"checked\"");
+                mpu_order, "", "checked=\"checked\"",
+                auto_start_app);
     }
     webpage = buf;
     Send_HTML(webpage);
@@ -325,6 +385,23 @@ void bili_setting()
     Send_HTML(webpage);
 }
 
+void stock_setting()
+{
+    char buf[2048];
+    char bili_uid[32];
+    char updataInterval[32];
+    // 读取数据
+    app_controller->send_to(SERVER_APP_NAME, "Stock", APP_MESSAGE_READ_CFG,
+                            NULL, NULL);
+    app_controller->send_to(SERVER_APP_NAME, "Stock", APP_MESSAGE_GET_PARAM,
+                            (void *)"stock_id", bili_uid);
+    app_controller->send_to(SERVER_APP_NAME, "Stock", APP_MESSAGE_GET_PARAM,
+                            (void *)"updataInterval", updataInterval);
+    sprintf(buf, STOCK_SETTING, bili_uid, updataInterval);
+    webpage = buf;
+    Send_HTML(webpage);
+}
+
 void picture_setting()
 {
     char buf[2048];
@@ -370,6 +447,81 @@ void screen_setting()
     Send_HTML(webpage);
 }
 
+void heartbeat_setting()
+{
+    char buf[2048];
+    char role[32];
+    char client_id[32];
+    char subtopic[32];
+    char mqtt_server[32];
+    char port[32];
+    char server_user[32];
+    char server_password[32];
+    // 读取数据
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat", APP_MESSAGE_READ_CFG,
+                            NULL, NULL);
+
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat", APP_MESSAGE_GET_PARAM,
+                            (void *)"role", role);
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat", APP_MESSAGE_GET_PARAM,
+                            (void *)"client_id", client_id);
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat", APP_MESSAGE_GET_PARAM,
+                            (void *)"subtopic", subtopic);
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat", APP_MESSAGE_GET_PARAM,
+                            (void *)"mqtt_server", mqtt_server);
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat", APP_MESSAGE_GET_PARAM,
+                            (void *)"port", port);
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat", APP_MESSAGE_GET_PARAM,
+                            (void *)"server_user", server_user);
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat", APP_MESSAGE_GET_PARAM,
+                            (void *)"server_password", server_password);
+
+    sprintf(buf, HEARTBEAT_SETTING, role, client_id, subtopic, mqtt_server,
+            port, server_user, server_password);
+    webpage = buf;
+    Send_HTML(webpage);
+}
+
+void anniversary_setting()
+{
+    char buf[2048];
+    char event_name0[32];
+    char target_date0[32];
+    char event_name1[32];
+    char target_date1[32];
+    // 读取数据
+    app_controller->send_to(SERVER_APP_NAME, "Anniversary", APP_MESSAGE_READ_CFG,
+                            NULL, NULL);
+    app_controller->send_to(SERVER_APP_NAME, "Anniversary", APP_MESSAGE_GET_PARAM,
+                            (void *)"event_name0", event_name0);
+    app_controller->send_to(SERVER_APP_NAME, "Anniversary", APP_MESSAGE_GET_PARAM,
+                            (void *)"target_date0", target_date0);
+    app_controller->send_to(SERVER_APP_NAME, "Anniversary", APP_MESSAGE_GET_PARAM,
+                            (void *)"event_name1", event_name1);
+    app_controller->send_to(SERVER_APP_NAME, "Anniversary", APP_MESSAGE_GET_PARAM,
+                            (void *)"target_date1", target_date1);
+    sprintf(buf, ANNIVERSARY_SETTING, event_name0, target_date0, event_name1, target_date1);
+    webpage = buf;
+    Send_HTML(webpage);
+}
+
+void pc_resource_setting()
+{
+    char buf[2048];
+    char pc_ipaddr[32];
+    char sensorUpdataInterval[32];
+    // 读取数据
+    app_controller->send_to(SERVER_APP_NAME, "PC Resource", APP_MESSAGE_READ_CFG,
+                            NULL, NULL);
+    app_controller->send_to(SERVER_APP_NAME, "PC Resource", APP_MESSAGE_GET_PARAM,
+                            (void *)"pc_ipaddr", pc_ipaddr);
+    app_controller->send_to(SERVER_APP_NAME, "PC Resource", APP_MESSAGE_GET_PARAM,
+                            (void *)"sensorUpdataInterval", sensorUpdataInterval);
+    sprintf(buf, REMOTR_SENSOR_SETTING, pc_ipaddr, sensorUpdataInterval);
+    webpage = buf;
+    Send_HTML(webpage);
+}
+
 void saveSysConf(void)
 {
     Send_HTML(F("<h1>设置成功! 退出APP或者继续其他设置.</h1>"));
@@ -402,6 +554,10 @@ void saveSysConf(void)
                             APP_MESSAGE_SET_PARAM,
                             (void *)"auto_calibration_mpu",
                             (void *)server.arg("auto_calibration_mpu").c_str());
+    app_controller->send_to(SERVER_APP_NAME, "AppCtrl",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"auto_start_app",
+                            (void *)server.arg("auto_start_app").c_str());
     // 持久化数据
     app_controller->send_to(SERVER_APP_NAME, "AppCtrl", APP_MESSAGE_WRITE_CFG,
                             NULL, NULL);
@@ -502,6 +658,22 @@ void saveBiliConf(void)
                             NULL, NULL);
 }
 
+void saveStockConf(void)
+{
+    Send_HTML(F("<h1>设置成功! 退出APP或者继续其他设置.</h1>"));
+    app_controller->send_to(SERVER_APP_NAME, "Stock",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"stock_id",
+                            (void *)server.arg("stock_id").c_str());
+    app_controller->send_to(SERVER_APP_NAME, "Stock",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"updataInterval",
+                            (void *)server.arg("updataInterval").c_str());
+    // 持久化数据
+    app_controller->send_to(SERVER_APP_NAME, "Stock", APP_MESSAGE_WRITE_CFG,
+                            NULL, NULL);
+}
+
 void savePictureConf(void)
 {
     Send_HTML(F("<h1>设置成功! 退出APP或者继续其他设置.</h1>"));
@@ -539,6 +711,82 @@ void saveScreenConf(void)
                             (void *)server.arg("powerFlag").c_str());
     // 持久化数据
     app_controller->send_to(SERVER_APP_NAME, "Screen share", APP_MESSAGE_WRITE_CFG,
+                            NULL, NULL);
+}
+
+void saveHeartbeatConf(void)
+{
+    Send_HTML(F("<h1>设置成功! 退出APP或者继续其他设置.</h1>"));
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"role",
+                            (void *)server.arg("role").c_str());
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"client_id",
+                            (void *)server.arg("mqtt_client_id").c_str());
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"subtopic",
+                            (void *)server.arg("mqtt_subtopic").c_str());
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"mqtt_server",
+                            (void *)server.arg("mqtt_server").c_str());
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"port",
+                            (void *)server.arg("mqtt_port").c_str());
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"server_user",
+                            (void *)server.arg("mqtt_user").c_str());
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"server_password",
+                            (void *)server.arg("mqtt_password").c_str());
+    // 持久化数据
+    app_controller->send_to(SERVER_APP_NAME, "Heartbeat", APP_MESSAGE_WRITE_CFG,
+                            NULL, NULL);
+}
+
+void saveAnniversaryConf(void)
+{
+    Send_HTML(F("<h1>设置成功! 退出APP或者继续其他设置.</h1>"));
+    app_controller->send_to(SERVER_APP_NAME, "Anniversary",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"event_name0",
+                            (void *)server.arg("event_name0").c_str());
+    app_controller->send_to(SERVER_APP_NAME, "Anniversary",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"target_date0",
+                            (void *)server.arg("target_date0").c_str());
+    app_controller->send_to(SERVER_APP_NAME, "Anniversary",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"event_name1",
+                            (void *)server.arg("event_name1").c_str());
+    app_controller->send_to(SERVER_APP_NAME, "Anniversary",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"target_date1",
+                            (void *)server.arg("target_date1").c_str());
+    // 持久化数据
+    app_controller->send_to(SERVER_APP_NAME, "Anniversary", APP_MESSAGE_WRITE_CFG,
+                            NULL, NULL);
+}
+
+void savePCResourceConf(void)
+{
+    Send_HTML(F("<h1>设置成功! 退出APP或者继续其他设置.</h1>"));
+    app_controller->send_to(SERVER_APP_NAME, "PC Resource",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"pc_ipaddr",
+                            (void *)server.arg("pc_ipaddr").c_str());
+    app_controller->send_to(SERVER_APP_NAME, "PC Resource",
+                            APP_MESSAGE_SET_PARAM,
+                            (void *)"sensorUpdataInterval",
+                            (void *)server.arg("sensorUpdataInterval").c_str());
+    // 持久化数据
+    app_controller->send_to(SERVER_APP_NAME, "PC Resource", APP_MESSAGE_WRITE_CFG,
                             NULL, NULL);
 }
 

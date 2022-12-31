@@ -6,8 +6,6 @@
 #include "docoder.h"
 #include "DMADrawer.h"
 
-#include <SD.h>
-
 #define MEDIA_PLAYER_APP_NAME "Media"
 
 #define VIDEO_WIDTH 240L
@@ -70,7 +68,6 @@ struct MediaAppRunData
     File_Info *movie_file; // movie文件夹下的文件指针头
     File_Info *pfile;      // 指向当前播放的文件节点
     File file;
-    uint8_t switch_count;
 };
 
 static MP_Config cfg_data;
@@ -112,7 +109,7 @@ static bool video_start(bool create_new)
     char file_name[FILENAME_MAX_LEN] = {0};
     snprintf(file_name, FILENAME_MAX_LEN, "%s/%s", run_data->movie_file->file_name, run_data->pfile->file_name);
 
-    run_data->file = SD.open(file_name);
+    run_data->file = tf.open(file_name);
     if (NULL != strstr(run_data->pfile->file_name, ".mjpeg") || NULL != strstr(run_data->pfile->file_name, ".MJPEG"))
     {
         // 直接解码mjpeg格式的视频
@@ -140,14 +137,14 @@ static void release_player_docoder(void)
     }
 }
 
-static int media_player_init(void)
+static int media_player_init(AppController *sys)
 {
     // 调整RGB模式  HSV色彩模式
     RgbParam rgb_setting = {LED_MODE_HSV, 0, 128, 32,
                             255, 255, 32,
                             1, 1, 1,
-                            0.15, 0.25, 0.001, 30};
-    set_rgb(&rgb_setting);
+                            0.15, 0.20, 0.001, 50};
+    set_rgb_and_run(&rgb_setting);
 
     // 获取配置信息
     read_config(&cfg_data);
@@ -159,8 +156,8 @@ static int media_player_init(void)
     run_data->movie_pos_increate = 1;
     run_data->movie_file = NULL; // movie文件夹下的文件指针头
     run_data->pfile = NULL;      // 指向当前播放的文件节点
-    run_data->switch_count = 0x00;
-    run_data->preTriggerKeyMillis = millis();
+    run_data->preTriggerKeyMillis = GET_SYS_MILLIS();
+
     run_data->movie_file = tf.listDir(MOVIE_PATH);
     if (NULL != run_data->movie_file)
     {
@@ -172,6 +169,7 @@ static int media_player_init(void)
 
     // 创建播放
     video_start(false);
+    return 0;
 }
 
 static void media_player_process(AppController *sys,
@@ -185,7 +183,7 @@ static void media_player_process(AppController *sys,
     else if (UNKNOWN != act_info->active)
     {
         // 记录下操作的时间点
-        run_data->preTriggerKeyMillis = millis();
+        run_data->preTriggerKeyMillis = GET_SYS_MILLIS();
         // 设置CPU主频
         setCpuFrequencyMhz(240);
     }
@@ -197,38 +195,24 @@ static void media_player_process(AppController *sys,
         return;
     }
 
-    if (TURN_RIGHT == act_info->active || TURN_LEFT == act_info->active && 1 == act_info->active_update)
+    if (TURN_RIGHT == act_info->active || TURN_LEFT == act_info->active)
     {
-        run_data->switch_count <<= 2;
-        run_data->switch_count |= 3;
-        // Serial.print(run_data->switch_count);
-        // Serial.println("     switch_count");
         // 切换方向
-        if (TURN_RIGHT == act_info->active && run_data->switch_count > 0XFE)
+        if (TURN_RIGHT == act_info->active)
         {
-            run_data->switch_count = 0X00;
             run_data->movie_pos_increate = 1;
-            release_player_docoder();
-            run_data->file.close(); // 尝试关闭文件
-
-            // 创建播放
-            video_start(true);
         }
-        else if (TURN_LEFT == act_info->active && run_data->switch_count > 0XFE)
+        else if (TURN_LEFT == act_info->active)
         {
-            run_data->switch_count = 0X00;
             run_data->movie_pos_increate = -1;
-            release_player_docoder();
-            run_data->file.close(); // 尝试关闭文件
-
-            // 创建播放
-            video_start(true);
         }
-    }
-    else if (1 == act_info->active_update)
-    {
-        run_data->switch_count <<= 2;
-        run_data->switch_count &= ~3;
+        // 结束播放
+        release_player_docoder();
+        run_data->file.close(); // 尝试关闭文件
+
+        // 创建播放
+        video_start(true);
+        vTaskDelay(400 / portTICK_PERIOD_MS); // 暂缓播放 避免手抖
     }
 
     if (NULL == run_data->pfile)
@@ -241,12 +225,12 @@ static void media_player_process(AppController *sys,
     // 主频控制 为了降低发热量
     if (getCpuFrequencyMhz() > 80 && 0 == cfg_data.powerFlag)
     {
-        if (getCpuFrequencyMhz() > 160 && millis() - run_data->preTriggerKeyMillis >= NO_TRIGGER_ENTER_FREQ_160M)
+        if (getCpuFrequencyMhz() > 160 && GET_SYS_MILLIS() - run_data->preTriggerKeyMillis >= NO_TRIGGER_ENTER_FREQ_160M)
         {
             // 设置CPU主频
             setCpuFrequencyMhz(160);
         }
-        else if (getCpuFrequencyMhz() > 80 && millis() - run_data->preTriggerKeyMillis >= NO_TRIGGER_ENTER_FREQ_80M)
+        else if (getCpuFrequencyMhz() > 80 && GET_SYS_MILLIS() - run_data->preTriggerKeyMillis >= NO_TRIGGER_ENTER_FREQ_80M)
         {
             setCpuFrequencyMhz(80);
         }
@@ -281,6 +265,13 @@ static void media_player_process(AppController *sys,
     }
 }
 
+static void media_player_background_task(AppController *sys,
+                                         const ImuAction *act_info)
+{
+    // 本函数为后台任务，主控制器会间隔一分钟调用此函数
+    // 本函数尽量只调用"常驻数据",其他变量可能会因为生命周期的缘故已经释放
+}
+
 static int media_player_exit_callback(void *param)
 {
     // 结束播放
@@ -290,16 +281,14 @@ static int media_player_exit_callback(void *param)
     // 释放文件循环队列
     release_file_info(run_data->movie_file);
 
-    free(run_data);
-    run_data = NULL;
+    // 释放运行数据
+    if (NULL != run_data)
+    {
+        free(run_data);
+        run_data = NULL;
+    }
 
-    // 恢复RGB灯  HSV色彩模式
-    RgbParam rgb_setting = {LED_MODE_HSV,
-                            1, 32, 255,
-                            255, 255, 255,
-                            1, 1, 1,
-                            0.15, 0.25, 0.001, 30};
-    set_rgb(&rgb_setting);
+    return 0;
 }
 
 static void media_player_message_handle(const char *from, const char *to,
@@ -355,5 +344,5 @@ static void media_player_message_handle(const char *from, const char *to,
 }
 
 APP_OBJ media_app = {MEDIA_PLAYER_APP_NAME, &app_movie, "",
-                     media_player_init, media_player_process,
+                     media_player_init, media_player_process, media_player_background_task,
                      media_player_exit_callback, media_player_message_handle};

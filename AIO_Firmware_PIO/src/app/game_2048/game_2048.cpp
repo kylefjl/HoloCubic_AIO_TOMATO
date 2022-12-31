@@ -3,7 +3,7 @@
 #include "game2048_contorller.h"
 #include "sys/app_controller.h"
 #include "common.h"
-#include <esp32-hal-timer.h>
+#include "freertos/semphr.h"
 
 #define G2048_APP_NAME "2048"
 
@@ -11,8 +11,8 @@ void taskOne(void *parameter)
 {
     while (1)
     {
-        //心跳任务
-        lv_tick_inc(5);
+        // 心跳任务
+        //  lv_tick_inc(5); // todo
         delay(5);
     }
     Serial.println("Ending task 1");
@@ -24,10 +24,10 @@ void taskTwo(void *parameter)
     while (1)
     {
         // LVGL任务主函数
-        screen.routine();
-        delay(5);
+        AIO_LVGL_OPERATE_LOCK(lv_task_handler();)
+        vTaskDelay(5 / portTICK_PERIOD_MS);
     }
-    Serial.println("Ending task 2");
+    Serial.println("Ending lv_task_handler");
     vTaskDelete(NULL);
 }
 
@@ -35,19 +35,19 @@ GAME2048 game;
 
 struct Game2048AppRunData
 {
-    int Normal = 0;       //记录移动的方向
-    int BornLocation = 0; //记录新棋子的位置
+    int Normal = 0;       // 记录移动的方向
+    int BornLocation = 0; // 记录新棋子的位置
     int *pBoard;
     int *moveRecord;
-    BaseType_t xReturned_task_one = NULL;
+    BaseType_t xReturned_task_one = pdFALSE;
     TaskHandle_t xHandle_task_one = NULL;
-    BaseType_t xReturned_task_two = NULL;
+    BaseType_t xReturned_task_two = pdFALSE;
     TaskHandle_t xHandle_task_two = NULL;
 };
 
 static Game2048AppRunData *run_data = NULL;
 
-static int game_2048_init(void)
+static int game_2048_init(AppController *sys)
 {
     // 初始化运行时的参数
     game_2048_gui_init();
@@ -59,34 +59,36 @@ static int game_2048_init(void)
     run_data->pBoard = game.getBoard();
     run_data->moveRecord = game.getMoveRecord();
 
-    run_data->xReturned_task_one = xTaskCreate(
-        taskOne,                      /*任务函数*/
-        "TaskOne",                    /*带任务名称的字符串*/
-        10000,                        /*堆栈大小，单位为字节*/
-        NULL,                         /*作为任务输入传递的参数*/
-        1,                            /*任务的优先级*/
-        &run_data->xHandle_task_one); /*任务句柄*/
+    // run_data->xReturned_task_one = xTaskCreate(
+    //     taskOne,                      /*任务函数*/
+    //     "TaskOne",                    /*带任务名称的字符串*/
+    //     10000,                        /*堆栈大小，单位为字节*/
+    //     NULL,                         /*作为任务输入传递的参数*/
+    //     1,                            /*任务的优先级*/
+    //     &run_data->xHandle_task_one); /*任务句柄*/
 
     run_data->xReturned_task_two = xTaskCreate(
         taskTwo,                      /*任务函数*/
         "TaskTwo",                    /*带任务名称的字符串*/
-        10000,                        /*堆栈大小，单位为字节*/
+        8 * 1024,                     /*堆栈大小，单位为字节*/
         NULL,                         /*作为任务输入传递的参数*/
         1,                            /*任务的优先级*/
         &run_data->xHandle_task_two); /*任务句柄*/
-    //刷新棋盘显示
+
+    // 刷新棋盘显示
     int new1 = game.addRandom();
     int new2 = game.addRandom();
-    showBoard(run_data->pBoard);
-    //棋子出生动画
-    born(new1);
-    born(new2);
+    AIO_LVGL_OPERATE_LOCK(showBoard(run_data->pBoard);)
+    // 棋子出生动画
+    AIO_LVGL_OPERATE_LOCK(born(new1);)
+    AIO_LVGL_OPERATE_LOCK(born(new2);)
     // 防止进入游戏时，误触发了向上
-    delay(1000);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    return 0;
 }
 
 static void game_2048_process(AppController *sys,
-                       const ImuAction *act_info)
+                              const ImuAction *act_info)
 {
     if (RETURN == act_info->active)
     {
@@ -100,8 +102,9 @@ static void game_2048_process(AppController *sys,
         game.moveRight();
         if (game.comparePre() == 0)
         {
-            showAnim(run_data->moveRecord, 4, game.addRandom(),
-                     run_data->pBoard);
+            AIO_LVGL_OPERATE_LOCK(showAnim(run_data->moveRecord, 4);)
+            delay(700);
+            AIO_LVGL_OPERATE_LOCK(showNewBorn(game.addRandom(), run_data->pBoard);)
         }
     }
     else if (TURN_LEFT == act_info->active)
@@ -109,8 +112,9 @@ static void game_2048_process(AppController *sys,
         game.moveLeft();
         if (game.comparePre() == 0)
         {
-            showAnim(run_data->moveRecord, 3, game.addRandom(),
-                     run_data->pBoard);
+            AIO_LVGL_OPERATE_LOCK(showAnim(run_data->moveRecord, 3);)
+            delay(700);
+            AIO_LVGL_OPERATE_LOCK(showNewBorn(game.addRandom(), run_data->pBoard);)
         }
     }
     else if (UP == act_info->active)
@@ -118,8 +122,9 @@ static void game_2048_process(AppController *sys,
         game.moveUp();
         if (game.comparePre() == 0)
         {
-            showAnim(run_data->moveRecord, 1, game.addRandom(),
-                     run_data->pBoard);
+            AIO_LVGL_OPERATE_LOCK(showAnim(run_data->moveRecord, 1);)
+            delay(700);
+            AIO_LVGL_OPERATE_LOCK(showNewBorn(game.addRandom(), run_data->pBoard);)
         }
     }
     else if (DOWN == act_info->active)
@@ -127,8 +132,9 @@ static void game_2048_process(AppController *sys,
         game.moveDown();
         if (game.comparePre() == 0)
         {
-            showAnim(run_data->moveRecord, 2, game.addRandom(),
-                     run_data->pBoard);
+            AIO_LVGL_OPERATE_LOCK(showAnim(run_data->moveRecord, 2);)
+            delay(700);
+            AIO_LVGL_OPERATE_LOCK(showNewBorn(game.addRandom(), run_data->pBoard);)
         }
     }
 
@@ -147,9 +153,16 @@ static void game_2048_process(AppController *sys,
     delay(300);
 }
 
+static void game_2048_background_task(AppController *sys,
+                                      const ImuAction *act_info)
+{
+    // 本函数为后台任务，主控制器会间隔一分钟调用此函数
+    // 本函数尽量只调用"常驻数据",其他变量可能会因为生命周期的缘故已经释放
+}
+
 static int game_2048_exit_callback(void *param)
 {
-    // 查杀定时器
+    // 查杀任务
     if (run_data->xReturned_task_one == pdPASS)
     {
         vTaskDelete(run_data->xHandle_task_one);
@@ -159,15 +172,22 @@ static int game_2048_exit_callback(void *param)
         vTaskDelete(run_data->xHandle_task_two);
     }
 
+    xSemaphoreGive(lvgl_mutex);
+
     game_2048_gui_del();
-    // 释放资源
-    free(run_data);
-    run_data = NULL;
+
+    // 释放运行数据
+    if (NULL != run_data)
+    {
+        free(run_data);
+        run_data = NULL;
+    }
+    return 0;
 }
 
 static void game_2048_message_handle(const char *from, const char *to,
-                              APP_MESSAGE_TYPE type, void *message,
-                              void *ext_info)
+                                     APP_MESSAGE_TYPE type, void *message,
+                                     void *ext_info)
 {
     // 目前事件主要是wifi开关类事件（用于功耗控制）
     switch (type)
@@ -193,5 +213,5 @@ static void game_2048_message_handle(const char *from, const char *to,
 }
 
 APP_OBJ game_2048_app = {G2048_APP_NAME, &app_game_2048, "",
-                         game_2048_init, game_2048_process,
+                         game_2048_init, game_2048_process, game_2048_background_task,
                          game_2048_exit_callback, game_2048_message_handle};

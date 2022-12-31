@@ -35,10 +35,10 @@ static void write_config(const WT_Config *cfg)
     w_data = w_data + cfg->language + "\n";
     w_data = w_data + cfg->weather_key + "\n";
     memset(tmp, 0, 16);
-    snprintf(tmp, 16, "%u\n", cfg->weatherUpdataInterval);
+    snprintf(tmp, 16, "%lu\n", cfg->weatherUpdataInterval);
     w_data += tmp;
     memset(tmp, 0, 16);
-    snprintf(tmp, 16, "%u\n", cfg->timeUpdataInterval);
+    snprintf(tmp, 16, "%lu\n", cfg->timeUpdataInterval);
     w_data += tmp;
     g_flashCfg.writeFile(WEATHER_OLD_CONFIG_PATH, w_data.c_str());
 }
@@ -114,8 +114,8 @@ static Weather getWeather(String url)
         {
             String payload = http.getString();
             Serial.println(payload);
-            int code_index = (payload.indexOf("code")) + 7;         //获取code位置
-            int temp_index = (payload.indexOf("temperature")) + 14; //获取temperature位置
+            int code_index = (payload.indexOf("code")) + 7;         // 获取code位置
+            int temp_index = (payload.indexOf("temperature")) + 14; // 获取temperature位置
             run_data->weather.weather_code =
                 atol(payload.substring(code_index, temp_index - 17).c_str());
             run_data->weather.temperature =
@@ -134,8 +134,8 @@ static Weather getWeather(String url)
 static long long getTimestamp()
 {
     // 使用本地的机器时钟
-    run_data->m_preNetTimestamp = run_data->m_preNetTimestamp + (millis() - run_data->m_preLocalTimestamp);
-    run_data->m_preLocalTimestamp = millis();
+    run_data->m_preNetTimestamp = run_data->m_preNetTimestamp + (GET_SYS_MILLIS() - run_data->m_preLocalTimestamp);
+    run_data->m_preLocalTimestamp = GET_SYS_MILLIS();
 
     return run_data->m_preNetTimestamp;
 }
@@ -164,15 +164,15 @@ static long long getTimestamp(String url)
             time = payload.substring(time_index, payload.length() - 3);
             // 以网络时间戳为准
             run_data->m_preNetTimestamp = atoll(time.c_str()) + run_data->m_errorNetTimestamp;
-            run_data->m_preLocalTimestamp = millis();
+            run_data->m_preLocalTimestamp = GET_SYS_MILLIS();
         }
     }
     else
     {
         Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
         // 得不到网络时间戳时
-        run_data->m_preNetTimestamp = run_data->m_preNetTimestamp + (millis() - run_data->m_preLocalTimestamp);
-        run_data->m_preLocalTimestamp = millis();
+        run_data->m_preNetTimestamp = run_data->m_preNetTimestamp + (GET_SYS_MILLIS() - run_data->m_preLocalTimestamp);
+        run_data->m_preLocalTimestamp = GET_SYS_MILLIS();
     }
     http.end();
 
@@ -194,7 +194,7 @@ static void UpdateTime_RTC(long long timestamp, lv_scr_load_anim_t anim_type)
     display_time_old(date.c_str(), time.c_str(), anim_type);
 }
 
-static int weather_init(void)
+static int weather_init(AppController *sys)
 {
     weather_old_gui_init();
     // 获取配置信息
@@ -206,11 +206,12 @@ static int weather_init(void)
     run_data->m_preLocalTimestamp = 0; // 上一次的本地机器时间戳
     run_data->clock_page = 0;          // 时钟桌面的播放记录
     // 变相强制更新
-    run_data->preWeatherMillis = millis() - cfg_data.weatherUpdataInterval;
-    run_data->preTimeMillis = millis() - cfg_data.timeUpdataInterval;
+    run_data->preWeatherMillis = GET_SYS_MILLIS() - cfg_data.weatherUpdataInterval;
+    run_data->preTimeMillis = GET_SYS_MILLIS() - cfg_data.timeUpdataInterval;
     run_data->coactusUpdateFlag = 0x01;
 
     run_data->weather = {0, 0};
+    return 0;
 }
 
 static void weather_process(AppController *sys,
@@ -277,13 +278,24 @@ static void weather_process(AppController *sys,
     delay(300);
 }
 
+static void weather_background_task(AppController *sys,
+                                    const ImuAction *act_info)
+{
+    // 本函数为后台任务，主控制器会间隔一分钟调用此函数
+    // 本函数尽量只调用"常驻数据",其他变量可能会因为生命周期的缘故已经释放
+}
+
 static int weather_exit_callback(void *param)
 {
     weather_old_gui_del();
 
     // 释放运行数据
-    free(run_data);
-    run_data = NULL;
+    if (NULL != run_data)
+    {
+        free(run_data);
+        run_data = NULL;
+    }
+    return 0;
 }
 
 static void weather_message_handle(const char *from, const char *to,
@@ -294,12 +306,12 @@ static void weather_message_handle(const char *from, const char *to,
     {
     case APP_MESSAGE_WIFI_CONN:
     {
-        Serial.print(millis());
+        Serial.print(GET_SYS_MILLIS());
         Serial.print(F("----->weather_event_notification\n"));
         int event_id = (int)message;
         if (0 == run_data->clock_page && run_data->clock_page == event_id)
         {
-            //如果要改城市这里也需要修改
+            // 如果要改城市这里也需要修改
             char api[128] = "";
             snprintf(api, 128, ZHIXIN_WEATHER_API, cfg_data.weather_key.c_str(),
                      cfg_data.cityname.c_str(), cfg_data.language.c_str());
@@ -337,11 +349,11 @@ static void weather_message_handle(const char *from, const char *to,
         }
         else if (!strcmp(param_key, "weatherUpdataInterval"))
         {
-            snprintf((char *)ext_info, 32, "%u", cfg_data.weatherUpdataInterval);
+            snprintf((char *)ext_info, 32, "%lu", cfg_data.weatherUpdataInterval);
         }
         else if (!strcmp(param_key, "timeUpdataInterval"))
         {
-            snprintf((char *)ext_info, 32, "%u", cfg_data.timeUpdataInterval);
+            snprintf((char *)ext_info, 32, "%lu", cfg_data.timeUpdataInterval);
         }
         else
         {
@@ -391,5 +403,5 @@ static void weather_message_handle(const char *from, const char *to,
 }
 
 APP_OBJ weather_old_app = {WEATHER_OLD_APP_NAME, &app_weather_old, "",
-                           weather_init, weather_process,
+                           weather_init, weather_process, weather_background_task,
                            weather_exit_callback, weather_message_handle};

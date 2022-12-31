@@ -6,7 +6,7 @@
 #define FANS_API "https://api.bilibili.com/x/relation/stat?vmid="
 #define OTHER_API "https://api.bilibili.com/x/space/upstat?mid="
 
-// 天气的持久化配置
+// Bilibili的持久化配置
 #define B_CONFIG_PATH "/bilibili.cfg"
 struct B_Config
 {
@@ -21,7 +21,7 @@ static void write_config(const B_Config *cfg)
     String w_data;
     w_data = w_data + cfg->bili_uid + "\n";
     memset(tmp, 0, 16);
-    snprintf(tmp, 16, "%u\n", cfg->updataInterval);
+    snprintf(tmp, 16, "%lu\n", cfg->updataInterval);
     w_data += tmp;
     g_flashCfg.writeFile(B_CONFIG_PATH, w_data.c_str());
 }
@@ -72,23 +72,23 @@ static MyHttpResult http_request(String uid = "344470052")
     // String url = "http://www.dtmb.top/api/fans/index?id=" + uid;
     MyHttpResult result;
     String url = FANS_API + uid;
-    HTTPClient *httpClient = new HTTPClient();
-    httpClient->setTimeout(1000);
-    bool status = httpClient->begin(url);
+    HTTPClient httpClient;
+    httpClient.setTimeout(1000);
+    bool status = httpClient.begin(url);
     if (status == false)
     {
         result.httpCode = -1;
         return result;
     }
-    int httpCode = httpClient->GET();
-    String httpResponse = httpClient->getString();
-    httpClient->end();
+    int httpCode = httpClient.GET();
+    String httpResponse = httpClient.getString();
+    httpClient.end();
     result.httpCode = httpCode;
     result.httpResponse = httpResponse;
     return result;
 }
 
-static int bilibili_init(void)
+static int bilibili_init(AppController *sys)
 {
     bilibili_gui_init();
     // 获取配置信息
@@ -98,13 +98,14 @@ static int bilibili_init(void)
     run_data->fans_num = 0;
     run_data->follow_num = 0;
     run_data->refresh_status = 0;
-    run_data->refresh_time_millis = millis() - cfg_data.updataInterval;
+    run_data->refresh_time_millis = GET_SYS_MILLIS() - cfg_data.updataInterval;
+    return 0;
 }
 
 static void bilibili_process(AppController *sys,
                              const ImuAction *act_info)
 {
-    lv_scr_load_anim_t anim_type = LV_SCR_LOAD_ANIM_FADE_ON;
+    lv_scr_load_anim_t anim_type = LV_SCR_LOAD_ANIM_NONE;
     if (RETURN == act_info->active)
     {
         sys->app_exit(); // 退出APP
@@ -135,7 +136,6 @@ static void bilibili_process(AppController *sys,
 
     if (0 == run_data->refresh_status)
     {
-        display_bilibili("bilibili", anim_type, fans_num, follow_num);
         // 以下减少网络请求的压力
         if (doDelayMillisTime(cfg_data.updataInterval, &run_data->refresh_time_millis, false))
         {
@@ -143,19 +143,30 @@ static void bilibili_process(AppController *sys,
                          APP_MESSAGE_WIFI_CONN, NULL, NULL);
         }
     }
-    else
-    {
-        display_bilibili("bilibili", anim_type, fans_num, follow_num);
-    }
+
+    display_bilibili("bilibili", anim_type, fans_num, follow_num);
 
     delay(300);
 }
 
-int bilibili_exit_callback(void *param)
+static void bilibili_background_task(AppController *sys,
+                                     const ImuAction *act_info)
+{
+    // 本函数为后台任务，主控制器会间隔一分钟调用此函数
+    // 本函数尽量只调用"常驻数据",其他变量可能会因为生命周期的缘故已经释放
+}
+
+static int bilibili_exit_callback(void *param)
 {
     bilibili_gui_del();
-    free(run_data);
-    run_data = NULL;
+
+    // 释放运行数据
+    if (NULL != run_data)
+    {
+        free(run_data);
+        run_data = NULL;
+    }
+    return 0;
 }
 
 static void update_fans_num()
@@ -197,7 +208,7 @@ static void bilibili_message_handle(const char *from, const char *to,
     {
     case APP_MESSAGE_WIFI_CONN:
     {
-        Serial.print(millis());
+        Serial.print(GET_SYS_MILLIS());
         Serial.println("[SYS] bilibili_event_notification");
         if (0 == run_data->refresh_status)
         {
@@ -214,7 +225,7 @@ static void bilibili_message_handle(const char *from, const char *to,
         }
         else if (!strcmp(param_key, "updataInterval"))
         {
-            snprintf((char *)ext_info, 32, "%u", cfg_data.updataInterval);
+            snprintf((char *)ext_info, 32, "%lu", cfg_data.updataInterval);
         }
         else
         {
@@ -252,5 +263,5 @@ static void bilibili_message_handle(const char *from, const char *to,
 }
 
 APP_OBJ bilibili_app = {BILI_APP_NAME, &app_bilibili, "", bilibili_init,
-                        bilibili_process, bilibili_exit_callback,
-                        bilibili_message_handle};
+                        bilibili_process, bilibili_background_task,
+                        bilibili_exit_callback, bilibili_message_handle};

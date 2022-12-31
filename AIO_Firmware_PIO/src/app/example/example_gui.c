@@ -1,6 +1,5 @@
 #include "example_gui.h"
 
-#include "driver/lv_port_indev.h"
 #include "lvgl.h"
 
 lv_obj_t *example_gui = NULL;

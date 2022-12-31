@@ -1,7 +1,9 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#define AIO_VERSION "2.0.4"
+#define AIO_VERSION "2.1.5"
+#define GET_SYS_MILLIS xTaskGetTickCount // 获取系统毫秒数
+// #define GET_SYS_MILLIS millis            // 获取系统毫秒数
 
 #include "Arduino.h"
 #include "driver/rgb_led.h"
@@ -11,6 +13,12 @@
 #include "driver/ambient.h"
 #include "driver/imu.h"
 #include "network.h"
+
+// SD_Card
+#define SD_SCK 14
+#define SD_MISO 26
+#define SD_MOSI 13
+#define SD_SS 15
 
 // MUP6050
 #define IMU_I2C_SDA 32
@@ -33,6 +41,10 @@ boolean doDelayMillisTime(unsigned long interval,
 #define AMB_I2C_SDA 32
 #define AMB_I2C_SCL 33
 
+// 屏幕尺寸
+#define SCREEN_HOR_RES 240 // 水平
+#define SCREEN_VER_RES 240 // 竖直
+
 // TFT屏幕接口
 // #define PEAK
 #ifdef PEAK
@@ -49,6 +61,21 @@ boolean doDelayMillisTime(unsigned long interval,
 
 #define LCD_BL_PWM_CHANNEL 0
 
+// 优先级定义(数值越小优先级越低)
+// 最高为 configMAX_PRIORITIES-1
+#define TASK_RGB_PRIORITY 0  // RGB的任务优先级
+#define TASK_LVGL_PRIORITY 2 // LVGL的页面优先级
+
+// lvgl 操作的锁
+extern SemaphoreHandle_t lvgl_mutex;
+// LVGL操作的安全宏（避免脏数据）
+#define AIO_LVGL_OPERATE_LOCK(CODE)                          \
+    if (pdTRUE == xSemaphoreTake(lvgl_mutex, portMAX_DELAY)) \
+    {                                                        \
+        CODE;                                                \
+        xSemaphoreGive(lvgl_mutex);                          \
+    }
+
 struct SysUtilConfig
 {
     String ssid_0;
@@ -57,6 +84,7 @@ struct SysUtilConfig
     String password_1;
     String ssid_2;
     String password_2;
+    String auto_start_app;        // 开机自启的APP名字
     uint8_t power_mode;           // 功耗模式（0为节能模式 1为性能模式）
     uint8_t backLight;            // 屏幕亮度（1-100）
     uint8_t rotation;             // 屏幕旋转方向

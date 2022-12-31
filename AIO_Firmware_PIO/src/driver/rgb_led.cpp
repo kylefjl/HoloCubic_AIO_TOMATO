@@ -1,6 +1,6 @@
 #include "rgb_led.h"
 #include "common.h"
-// #include <esp32-hal-timer.h>
+#include <Arduino.h>
 
 void Pixel::init()
 {
@@ -10,8 +10,10 @@ void Pixel::init()
 
 Pixel &Pixel::setRGB(int r, int g, int b)
 {
-    rgb_buffers[0] = CRGB(r, g, b);
-    rgb_buffers[1] = CRGB(r, g, b);
+    for (int pos = 0; pos < RGB_LED_NUM; ++pos)
+    {
+        rgb_buffers[pos] = CRGB(r, g, b);
+    }
     FastLED.show();
 
     return *this;
@@ -19,8 +21,10 @@ Pixel &Pixel::setRGB(int r, int g, int b)
 
 Pixel &Pixel::setHVS(uint8_t ih, uint8_t is, uint8_t iv)
 {
-    rgb_buffers[0].setHSV(ih, is, iv);
-    rgb_buffers[1].setHSV(ih, is, iv);
+    for (int pos = 0; pos < RGB_LED_NUM; ++pos)
+    {
+        rgb_buffers[pos].setHSV(ih, is, iv);
+    }
     FastLED.show();
 
     return *this;
@@ -45,24 +49,122 @@ Pixel &Pixel::setBrightness(float duty)
     return *this;
 }
 
+LED_RUN_MODE run_mode = RUN_MODE_NONE;
 RgbParam g_rgb;
-hw_timer_t *rgb_timer;
 RgbRunStatus rgb_status;
+BaseType_t taskRgbReturned;
+TaskHandle_t handleLed = NULL;
 TimerHandle_t xTimer_rgb = NULL;
 
-void rgb_thread_init(RgbParam *rgb_setting)
+void led_timerHandler(TimerHandle_t xTimer);
+void led_taskHandler(void *parameter);
+static void hsvModeChange(void);
+static void rgbModeChange(void);
+static void onceChange(void);
+static void count_cur_brightness(void);
+
+bool set_rgb_and_run(RgbParam *rgb_setting, LED_RUN_MODE mode)
 {
-    // // 80Mh主频
-    // rgb_timer = timerBegin(0, 80, true);
-    // timerAttachInterrupt(rgb_timer, &led_rgbOnTimer, true);
-    // //  操作的定时器 定时时长
-    // timerAlarmWrite(rgb_timer, 1000000, true);
-    // timerAlarmEnable(rgb_timer); // 使能报警器
-    // Serial.print("timerAlarmWrite\n");
-    set_rgb(rgb_setting);
+    if (RUN_MODE_NONE <= mode)
+    {
+        // 创建失败
+        return false;
+    }
+
+    if (run_mode != mode)
+    {
+        // 运行模式发生变化
+        rgb_stop();
+        run_mode = mode;
+    }
+
+    g_rgb = *rgb_setting;
+
+    // 拷贝数据
+    if (LED_MODE_RGB == g_rgb.mode)
+    {
+        rgb_status.current_r = g_rgb.min_value_r;
+        rgb_status.current_g = g_rgb.min_value_g;
+        rgb_status.current_b = g_rgb.min_value_b;
+        rgb_status.current_brightness = g_rgb.min_brightness;
+        rgb_status.pos = 0;
+    }
+    else if (LED_MODE_HSV == g_rgb.mode)
+    {
+        rgb_status.current_h = g_rgb.min_value_h;
+        rgb_status.current_s = g_rgb.min_value_s;
+        rgb_status.current_v = g_rgb.min_value_v;
+        rgb_status.current_brightness = g_rgb.min_brightness;
+        rgb_status.pos = 0;
+    }
+
+    // 选择启动两种运行模式
+    if (RUN_MODE_TIMER == run_mode)
+    {
+        if (NULL != xTimer_rgb)
+        {
+            xTimerStop(xTimer_rgb, 0);
+            xTimer_rgb = NULL;
+        }
+        xTimer_rgb = xTimerCreate("led_timerHandler",
+                                  g_rgb.time / portTICK_PERIOD_MS,
+                                  pdTRUE, (void *)0, led_timerHandler);
+        xTimerStart(xTimer_rgb, 0); // 开启定时器
+    }
+    else if (RUN_MODE_TASK == run_mode)
+    {
+        if (NULL == handleLed)
+        {
+            taskRgbReturned = xTaskCreate(
+                led_taskHandler,
+                "led_taskHandler",
+                8 * 128, // 实际上 7*128就够用
+                (void *)&g_rgb.time,
+                TASK_RGB_PRIORITY,
+                &handleLed);
+            if (taskRgbReturned != pdPASS)
+            {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
-void led_hsvOnTimer(TimerHandle_t xTimer)
+void led_timerHandler(TimerHandle_t xTimer)
+{
+    onceChange();
+}
+
+void led_taskHandler(void *parameter)
+{
+    int *ms = (int *)parameter; // 控制时间
+    for (;;)
+    {
+        onceChange();
+        vTaskDelay(*ms);
+
+        // if (pdTRUE == xSemaphoreTake(lvgl_mutex, portMAX_DELAY))
+        // {
+        //     lv_task_handler();
+        //     xSemaphoreGive(lvgl_mutex);
+        // }
+    }
+}
+
+static void onceChange(void)
+{
+    if (LED_MODE_RGB == g_rgb.mode)
+    {
+        rgbModeChange();
+    }
+    else if (LED_MODE_HSV == g_rgb.mode)
+    {
+        hsvModeChange();
+    }
+}
+
+static void hsvModeChange(void)
 {
     // HSV色彩的控制
     rgb_status.current_h += g_rgb.step_h;
@@ -100,10 +202,9 @@ void led_hsvOnTimer(TimerHandle_t xTimer)
         g_rgb.step_v = (-1) * g_rgb.step_v;
         rgb_status.current_v = g_rgb.min_value_v;
     }
-    
+
     // 计算当前背光值
     count_cur_brightness();
-    // rgb_status.current_brightness = g_rgb.max_brightness;
 
     // 设置HSV状态
     rgb.setHVS(rgb_status.current_h,
@@ -112,8 +213,7 @@ void led_hsvOnTimer(TimerHandle_t xTimer)
         .setBrightness(rgb_status.current_brightness);
 }
 
-// void IRAM_ATTR led_rgbOnTimer()
-void led_rgbOnTimer(TimerHandle_t xTimer)
+static void rgbModeChange(void)
 {
     // RGB色彩的控制
     if (0 == rgb_status.pos) // 控制到R
@@ -169,7 +269,7 @@ void led_rgbOnTimer(TimerHandle_t xTimer)
         .setBrightness(rgb_status.current_brightness);
 }
 
-void count_cur_brightness(void)
+static void count_cur_brightness(void)
 {
     // 背光的控制
     rgb_status.current_brightness += g_rgb.brightness_step;
@@ -185,46 +285,19 @@ void count_cur_brightness(void)
     }
 }
 
-void set_rgb(RgbParam *rgb_setting)
+void rgb_stop(void)
 {
-    g_rgb = *rgb_setting;
-    if (NULL != xTimer_rgb)
+    if (RUN_MODE_TIMER == run_mode &&
+        NULL != xTimer_rgb)
     {
         xTimerStop(xTimer_rgb, 0);
         xTimer_rgb = NULL;
     }
 
-    if (LED_MODE_RGB == g_rgb.mode)
+    if (RUN_MODE_TASK == run_mode &&
+        NULL != handleLed)
     {
-        rgb_status.current_r = g_rgb.min_value_r;
-        rgb_status.current_g = g_rgb.min_value_g;
-        rgb_status.current_b = g_rgb.min_value_b;
-        rgb_status.current_brightness = g_rgb.min_brightness;
-        rgb_status.pos = 0;
-        xTimer_rgb = xTimerCreate("rgb contorller",
-                                  g_rgb.time / portTICK_PERIOD_MS,
-                                  pdTRUE, (void *)0, led_rgbOnTimer);
-    }
-    else if (LED_MODE_HSV == g_rgb.mode)
-    {
-        rgb_status.current_h = g_rgb.min_value_h;
-        rgb_status.current_s = g_rgb.min_value_s;
-        rgb_status.current_v = g_rgb.min_value_v;
-        rgb_status.current_brightness = g_rgb.min_brightness;
-        rgb_status.pos = 0;
-        xTimer_rgb = xTimerCreate("rgb contorller",
-                                  g_rgb.time / portTICK_PERIOD_MS,
-                                  pdTRUE, (void *)0, led_hsvOnTimer);
-    }
-    xTimerStart(xTimer_rgb, 0); //开启定时器
-}
-
-void rgb_thread_del(void)
-{
-    // timerEnd(rgb_timer);
-    if (NULL != xTimer_rgb)
-    {
-        xTimerStop(xTimer_rgb, 0);
-        xTimer_rgb = NULL;
+        vTaskDelete(handleLed);
+        handleLed = NULL;
     }
 }

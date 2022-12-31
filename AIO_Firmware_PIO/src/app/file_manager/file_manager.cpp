@@ -28,7 +28,7 @@ struct FileManagerAppRunData
 };
 
 static FileManagerAppRunData *run_data = NULL;
-static int file_maneger_init(void)
+static int file_maneger_init(AppController *sys)
 {
     file_maneger_gui_init();
     // 初始化运行时参数
@@ -38,10 +38,11 @@ static int file_maneger_init(void)
     run_data->serverReflushPreMillis = 0;
     run_data->recvBuf = (uint8_t *)calloc(1, RECV_BUFFER_SIZE);
     run_data->sendBuf = (uint8_t *)calloc(1, SEND_BUFFER_SIZE);
+    return 0;
 }
 
 static void file_maneger_process(AppController *sys,
-                          const ImuAction *action)
+                                 const ImuAction *action)
 {
     lv_scr_load_anim_t anim_type = LV_SCR_LOAD_ANIM_NONE;
 
@@ -77,6 +78,13 @@ static void file_maneger_process(AppController *sys,
     }
 }
 
+static void file_maneger_background_task(AppController *sys,
+                                         const ImuAction *act_info)
+{
+    // 本函数为后台任务，主控制器会间隔一分钟调用此函数
+    // 本函数尽量只调用"常驻数据",其他变量可能会因为生命周期的缘故已经释放
+}
+
 static int file_maneger_exit_callback(void *param)
 {
     file_manager_gui_del();
@@ -93,14 +101,18 @@ static int file_maneger_exit_callback(void *param)
         run_data->sendBuf = NULL;
     }
 
-    // 释放运行时参数
-    free(run_data);
-    run_data = NULL;
+    // 释放运行数据
+    if (NULL != run_data)
+    {
+        free(run_data);
+        run_data = NULL;
+    }
+    return 0;
 }
 
 static void file_maneger_message_handle(const char *from, const char *to,
-                                 APP_MESSAGE_TYPE type, void *message,
-                                 void *ext_info)
+                                        APP_MESSAGE_TYPE type, void *message,
+                                        void *ext_info)
 {
     switch (type)
     {
@@ -140,5 +152,6 @@ static void file_maneger_message_handle(const char *from, const char *to,
 }
 
 APP_OBJ file_manager_app = {FILE_MANAGER_APP_NAME, &app_file_manager, "",
-                            file_maneger_init, file_maneger_process,
+                            file_maneger_init, file_maneger_process, file_maneger_background_task,
                             file_maneger_exit_callback, file_maneger_message_handle};
+                            

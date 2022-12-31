@@ -21,7 +21,7 @@ static void write_config(PIC_Config *cfg)
     // 将配置数据保存在文件中（持久化）
     String w_data;
     memset(tmp, 0, 16);
-    snprintf(tmp, 16, "%u\n", cfg->switchInterval);
+    snprintf(tmp, 16, "%lu\n", cfg->switchInterval);
     w_data += tmp;
     g_flashCfg.writeFile(PICTURE_CONFIG_PATH, w_data.c_str());
 }
@@ -101,7 +101,7 @@ static File_Info *get_next_file(File_Info *p_cur_file, int direction)
     return pfile;
 }
 
-static int picture_init(void)
+static int picture_init(AppController *sys)
 {
     photo_gui_init();
     // 获取配置信息
@@ -126,6 +126,7 @@ static int picture_init(void)
     TJpgDec.setJpgScale(1);
     // The decoder must be given the exact name of the rendering function above
     TJpgDec.setCallback(tft_output);
+    return 0;
 }
 
 static void picture_process(AppController *sys,
@@ -143,13 +144,13 @@ static void picture_process(AppController *sys,
     {
         anim_type = LV_SCR_LOAD_ANIM_OVER_RIGHT;
         run_data->image_pos_increate = 1;
-        run_data->pic_perMillis = millis() - cfg_data.switchInterval; // 间接强制更新
+        run_data->pic_perMillis = GET_SYS_MILLIS() - cfg_data.switchInterval; // 间接强制更新
     }
     else if (TURN_LEFT == act_info->active)
     {
         anim_type = LV_SCR_LOAD_ANIM_OVER_LEFT;
         run_data->image_pos_increate = -1;
-        run_data->pic_perMillis = millis() - cfg_data.switchInterval; // 间接强制更新
+        run_data->pic_perMillis = GET_SYS_MILLIS() - cfg_data.switchInterval; // 间接强制更新
     }
 
     if (NULL == run_data->image_file)
@@ -186,6 +187,13 @@ static void picture_process(AppController *sys,
     delay(300);
 }
 
+static void picture_background_task(AppController *sys,
+                                    const ImuAction *act_info)
+{
+    // 本函数为后台任务，主控制器会间隔一分钟调用此函数
+    // 本函数尽量只调用"常驻数据",其他变量可能会因为生命周期的缘故已经释放
+}
+
 static int picture_exit_callback(void *param)
 {
     photo_gui_del();
@@ -195,8 +203,12 @@ static int picture_exit_callback(void *param)
     tft->setSwapBytes(run_data->tftSwapStatus);
 
     // 释放运行数据
-    free(run_data);
-    run_data = NULL;
+    if (NULL != run_data)
+    {
+        free(run_data);
+        run_data = NULL;
+    }
+    return 0;
 }
 
 static void picture_message_handle(const char *from, const char *to,
@@ -210,7 +222,7 @@ static void picture_message_handle(const char *from, const char *to,
         char *param_key = (char *)message;
         if (!strcmp(param_key, "switchInterval"))
         {
-            snprintf((char *)ext_info, 32, "%u", cfg_data.switchInterval);
+            snprintf((char *)ext_info, 32, "%lu", cfg_data.switchInterval);
         }
         else
         {
@@ -244,5 +256,5 @@ static void picture_message_handle(const char *from, const char *to,
 }
 
 APP_OBJ picture_app = {PICTURE_APP_NAME, &app_picture, "",
-                       picture_init, picture_process,
+                       picture_init, picture_process, picture_background_task,
                        picture_exit_callback, picture_message_handle};

@@ -55,7 +55,7 @@ void screen_draw_pixel(int32_t x, int32_t y, uint16_t color) //指定GUI库的�
     screen_buf[y * SCREEN_WIDTH + x] = color;
 }
 
-static int idea_init(void)
+static int idea_init(AppController *sys)
 {
     screen_buf = (uint8_t *)malloc(SCREEN_HEIGHT * SCREEN_WIDTH); //动态分配一块屏幕分辨率大小的空间
     if (screen_buf == NULL)
@@ -69,6 +69,7 @@ static int idea_init(void)
     my_gfx_op.fill_rect = NULL;                                  // gfx_fill_rect;
     create_ui(NULL, SCREEN_WIDTH, SCREEN_HEIGHT, 2, &my_gfx_op); // ui初始化
     screen_clear(0x0000);
+    return 0;
 }
 
 static void idea_process(AppController *sys,
@@ -102,6 +103,13 @@ static void idea_process(AppController *sys,
     delay(20);                                                     //改变这个延时函数就能改变特效播放的快慢
 }
 
+static void idea_background_task(AppController *sys,
+                                 const ImuAction *act_info)
+{
+    // 本函数为后台任务，主控制器会间隔一分钟调用此函数
+    // 本函数尽量只调用"常驻数据",其他变量可能会因为生命周期的缘故已经释放
+}
+
 static int idea_exit_callback(void *param)
 {
     if (NULL != screen_buf)
@@ -109,6 +117,7 @@ static int idea_exit_callback(void *param)
         free(screen_buf);
         screen_buf = NULL;
     }
+    return 0;
 }
 
 static void idea_message_handle(const char *from, const char *to,
@@ -118,5 +127,5 @@ static void idea_message_handle(const char *from, const char *to,
 }
 
 APP_OBJ idea_app = {IDEA_APP_NAME, &app_idea, "", idea_init,
-                    idea_process, idea_exit_callback,
+                    idea_process, idea_background_task, idea_exit_callback,
                     idea_message_handle};

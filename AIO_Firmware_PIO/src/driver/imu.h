@@ -4,6 +4,8 @@
 #include <I2Cdev.h>
 #include <MPU6050.h>
 #include "lv_port_indev.h"
+#include <list>
+#define ACTION_HISTORY_BUF_LEN 5
 
 extern int32_t encoder_diff;
 extern lv_indev_state_t encoder_state;
@@ -45,8 +47,7 @@ struct SysMpuConfig
 
 struct ImuAction
 {
-    ACTIVE_TYPE active;
-    bool active_update;
+    volatile ACTIVE_TYPE active;
     boolean isValid;
     boolean long_time;
     int16_t v_ax; // v表示虚拟参数（用于调整6050的初始方位）
@@ -67,6 +68,10 @@ private:
 
 public:
     ImuAction action_info;
+    // 用来储存历史动作
+    // std::list<ACTIVE_TYPE> act_info_history;
+    ACTIVE_TYPE act_info_history[ACTION_HISTORY_BUF_LEN];
+    int act_info_history_ind; // 标志储存的位置
 
 public:
     IMU();
@@ -75,6 +80,7 @@ public:
     void setOrder(uint8_t order); // 设置方向
     bool Encoder_GetIsPush(void); // 适配Peak的编码器中键 开关机使用
     ImuAction *update(int interval);
+    ImuAction *getAction(void); // 获取动作
     void getVirtureMotion6(ImuAction *action_info);
 };
 
