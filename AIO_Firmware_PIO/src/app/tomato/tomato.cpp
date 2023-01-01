@@ -8,8 +8,8 @@
 // 动态数据，APP的生命周期结束也需要释放它
 struct TomatoAppRunData
 {
-    long long time_start; //开始毫秒数
-    long long time_ms;    //毫秒数,对应倒计时显示的时间
+    unsigned long  time_start; //记录系统开始计时时的毫秒数
+    unsigned long  time_ms;    //毫秒数,对应倒计时显示的时间
     TimeStr t;            //时间结构体
     TimeStr t_start;      //倒计时结构体
     RgbConfig rgb_cfg;    //灯效
@@ -244,7 +244,7 @@ static void tomato_process(AppController *sys,
     rgb_ctrl();
     if (run_data->rgb_fast == 0)//未到点持续计算之间
     {
-        int ms_count=999+(run_data->t_start.second+run_data->t_start.minute*60)*1000;//倒计时时长，单位ms，加999ms是为了可以显示x分00秒，否则会直接闪过
+        unsigned long  ms_count=999+(run_data->t_start.second+run_data->t_start.minute*60)*1000;//倒计时时长，单位ms，加999ms是为了可以显示x分00秒，否则会直接闪过
         run_data->time_ms = ms_count-(millis() - run_data->time_start); //倒计时长减去已经过去的时间就是要显示的时间
         run_data->t.second = run_data->time_ms%60000/1000;
         run_data->t.minute = run_data->time_ms/60/1000;
