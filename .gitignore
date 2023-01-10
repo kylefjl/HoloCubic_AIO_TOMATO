@@ -1,3 +1,6 @@
 .pio/
-.DS_Store
+AIO_Firmware_PIO/.DS_Store
 .vscode/
+AIO_Firmware_PIO/.pio/
+AIO_Firmware_PIO/.vscode/
+AIO_Firmware_PIO/build/
